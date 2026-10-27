@@ -162,12 +162,12 @@ sirius_user_thread_probe(void)
 
 static unsigned int nemmc_stack_dumps;
 
-/* PSTATE.PAN is set on every exception entry when SCTLR_EL1.SPAN is set, and a set PAN makes
- * every privileged access to a user page fault. This kernel is built with CONFIG_XNU_NATIVE_PAN=n,
- * so copyio.c's user_access_enable()/disable() are empty and nothing would ever clear it, which
- * turns the first kernel write into the init process's map into a fault that the fast fault path
- * resolves and immediately takes again. Clear it once, guarded by the feature check: on cores
- * without PAN the instruction is undefined. */
+/* PSTATE.PAN is set on every exception entry while SCTLR_EL1.SPAN is clear, and a set PAN makes
+ * every privileged access to a user page fault. The kernel is built with CONFIG_XNU_NATIVE_PAN=y,
+ * so it keeps PAN set and copyio.c opens it around each user access itself. Only report it here:
+ * clearing it once never helped (the next exception entry sets it again), and with PAN support
+ * compiled in a clear PAN at a context switch is a panic. The read is guarded by the feature
+ * check: on cores without PAN the instruction is undefined. */
 static int
 nemmc_pan_implemented(void)
 {
@@ -188,11 +188,7 @@ nemmc_report_pan(void)
 	}
 	/* PSTATE.PAN as a system register (S3_0_C4_C2_3): clang's named form does not accept it. */
 	pan = (uint64_t)__builtin_arm_rsr("S3_0_C4_C2_3");
-	emmc_log_dec("NEMMC pan before ", pan);
-	if (pan != 0) {
-		__builtin_arm_wsr("S3_0_C4_C2_3", 0);
-		emmc_log_dec("NEMMC pan after ", (uint64_t)__builtin_arm_rsr("S3_0_C4_C2_3"));
-	}
+	emmc_log_dec("NEMMC pan ", pan);
 }
 
 static void
