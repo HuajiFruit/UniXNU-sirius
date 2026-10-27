@@ -62,3 +62,15 @@ CONFIG_XNU_NATIVE_CS_HASH_CACHE=n
 # Compile the bsd_init call site of sheng-platform-power.patch so package/SiriusPmgr.cpp can
 # advertise the ApplePMGRNub that AMFI looks for (the target kernelcache stays unmodified).
 CONFIG_XNU_SHENG_PMGR=1
+
+# dyld's shared cache is in the SystemOS cryptex, not on the root volume: with neither mounted,
+# launchd's shared_region_check_np returns ENOMEM and dyld stops. offline-owner-systemos-mount.patch
+# (ARM64 series) mounts the SystemOS volume (8846FE78-..., the patch default for this image) as a
+# union over / before launchd starts and sets dyld's no-ignition bit, as asteroids and tb128fu do.
+# BRINGUP_OWNER_CACHE builds it without the owner root trust chain (scripts/build-xnu-4k-baseline.sh);
+# package/NativeEmmc.cpp then authorizes the eMMC volumes only with sirius-allow-unverified=1.
+# The Data volume (OWNER_DATA_MOUNT) needs a Data seed and the RAM block device and comes later.
+CONFIG_XNU_BRINGUP_OWNER_CACHE=y
+CONFIG_XNU_OWNER_CACHE_MOUNT=y
+CONFIG_XNU_OWNER_CACHE_STARTUP=y
+CONFIG_XNU_OWNER_UNION_SYSTEMOS=y

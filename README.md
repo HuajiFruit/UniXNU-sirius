@@ -116,9 +116,11 @@ From the mainline `sdm670.dtsi` (SDM710 is a superset), the vendor tree and the 
 ## Known deviations from upstream UniXNU
 
 1. **No firmware step.** `[firmware]` is absent and the payload is the artifact; see above.
-2. **`scripts/build-xnu-4k-baseline.sh` is a copy of the UniXNU script with one change**: the
+2. **`scripts/build-xnu-4k-baseline.sh` is a copy of the UniXNU script with two changes**: the
    boot-progress interlock requires only the source crypto provider, because this board is eMMC
-   and has no UFS/owner-root/Virtio stack. Re-base it when UniXNU changes the script.
+   and has no UFS/owner-root/Virtio stack; and `XNU_BRINGUP_OWNER_CACHE` (from the uke port) lets
+   the SystemOS union mount build without the owner root trust chain. Re-base it when UniXNU
+   changes the script.
 3. **Board forks of two components.** `drivers/ArmCpu` and `drivers/DarwinBoot` are device-local
    copies; upstream sees them only through this repository.
 

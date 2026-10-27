@@ -16,6 +16,8 @@
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <kern/thread.h>
 #include <kern/sched_prim.h>
+#include <libkern/libkern.h>
+#include <sys/param.h>
 
 extern "C" {
 /* From sirius_emmc.c. prepare() is idempotent and also fills total_blocks from the GPT. */
@@ -907,6 +909,94 @@ NativeEmmc::stop(IOService *provider)
 	}
 	fWindows = 0;
 	IOService::stop(provider);
+}
+
+/* The owner SystemOS mount in kern_exec.c (offline-owner-systemos-mount.patch, built here with
+ * XNU_BRINGUP_OWNER_CACHE) mounts the SystemOS cryptex as a union over / before launchd starts, so
+ * dyld finds its shared cache. It asks the block driver to authorize the root and to name the device
+ * of the SystemOS volume. The eMMC windows have no owner policy, so both answers are only given with
+ * the explicit boot argument sirius-allow-unverified=1, as the uke port does for its UFS root. */
+static int
+nemmc_allow_unverified(void)
+{
+	static int answer = -1;
+	unsigned allow = 0;
+
+	if (answer < 0) {
+		answer = PE_parse_boot_argn("sirius-allow-unverified", &allow, sizeof(allow)) && allow == 1;
+	}
+	return answer;
+}
+
+extern "C" int
+native_verified_block_root_authorized(dev_t device)
+{
+	(void)device;
+	return nemmc_allow_unverified();
+}
+
+extern "C" int
+native_verified_block_volume_device(const char *uuid, dev_t *device, char *path, size_t size)
+{
+	if (uuid == nullptr || device == nullptr || path == nullptr || size < 6 || strlen(uuid) != 36) {
+		return 0;
+	}
+	*device = NODEV;
+	path[0] = '\0';
+	if (!nemmc_allow_unverified()) {
+		emmc_log("NEMMC owner volume refused: no sirius-allow-unverified\n");
+		return 0;
+	}
+	/* APFS publishes the volume media after the root mounts, and launchd starts right after it,
+	 * so give the SystemOS volume up to ten seconds to appear. */
+	for (unsigned attempt = 0; attempt < 100; attempt++) {
+		OSDictionary *matching = IOService::serviceMatching("IOMedia");
+		OSDictionary *properties = OSDictionary::withCapacity(1);
+		OSString *wanted = OSString::withCString(uuid);
+		bool ready = matching != nullptr && properties != nullptr && wanted != nullptr &&
+		    properties->setObject("UUID", wanted) && matching->setObject("IOPropertyMatch", properties);
+		OSSafeReleaseNULL(wanted);
+		OSSafeReleaseNULL(properties);
+		OSIterator *iterator = ready ? IOService::getMatchingServices(matching) : nullptr;
+		OSSafeReleaseNULL(matching);
+		dev_t candidate = NODEV;
+		char candidatePath[64] = {};
+		unsigned matches = 0;
+		bool found = false;
+		while (iterator != nullptr) {
+			IOService *media = OSDynamicCast(IOService, iterator->getNextObject());
+			if (media == nullptr) {
+				break;
+			}
+			if (++matches != 1) {
+				found = false;
+				break;
+			}
+			OSString *name = OSDynamicCast(OSString, media->getProperty("BSD Name"));
+			OSNumber *major = OSDynamicCast(OSNumber, media->getProperty("BSD Major"));
+			OSNumber *minor = OSDynamicCast(OSNumber, media->getProperty("BSD Minor"));
+			if (name == nullptr || major == nullptr || minor == nullptr || name->getLength() == 0 ||
+			    name->getLength() >= sizeof(candidatePath) - 6 || name->getLength() >= size - 6 ||
+			    major->unsigned64BitValue() > 255 || minor->unsigned64BitValue() > 0xffffff) {
+				continue;
+			}
+			candidate = (dev_t)makedev(major->unsigned32BitValue(), minor->unsigned32BitValue());
+			snprintf(candidatePath, sizeof(candidatePath), "/dev/%s", name->getCStringNoCopy());
+			found = true;
+		}
+		OSSafeReleaseNULL(iterator);
+		if (found && matches == 1) {
+			*device = candidate;
+			strlcpy(path, candidatePath, size);
+			emmc_log("NEMMC owner volume ");
+			emmc_log(path);
+			emmc_log("\n");
+			return 1;
+		}
+		IOSleep(100);
+	}
+	emmc_log("NEMMC owner volume not found\n");
+	return 0;
 }
 
 /* Entry point of bsd_init (patches/xnu/sirius-usb-console.patch). No personality is installed:
