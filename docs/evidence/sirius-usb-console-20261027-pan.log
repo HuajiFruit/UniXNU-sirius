@@ -1,0 +1,112 @@
+# Distinct lines of the USB console, kernel b1a11c4 (CONFIG_XNU_NATIVE_PAN=y, no PAN clear in NativeEmmc)
+# kernel.macho sha256 6f0d59b13e4ac3861c902962df8043c3bccac959cffcd859c5f965f697194d17
+# payload    sha256 00c8f4d7feba7982c1fcdcb2f072121d6b7a227fc38ebc0edd229bbd00b5bb08 (vendor, 8 CPUs, board.toml args)
+# python scripts/capture-usb-console.py --follow --wait 180 --duration 420 (Windows, COM7); 93,517,051 bytes captured, repeats and USB/EMMC chatter removed
+NEMMC pan implemented 1
+NEMMC pan 4194304
+dlil_init: Waiting for all the create dlil kernel threads to get scheduled at least once.
+NEMMC probe user thread starts 0
+NEMMC probe user faults 0
+NEMMC probe init syscalls 0
+NEMMC probe init returns 0
+NEMMC probe init asts 0
+NEMMC probe init faults 0
+dlil_init: All the created dlil kernel threads have been scheduled at least once. Proceeding.
+BSD root: disk2s1, major 1, minor 4
+sirius: rootvp authentication answered 80, skipped by boot arg
+sirius: cloneproc forkproc enter
+sirius: cloneproc forkproc done
+sirius: cloneproc create_child enter
+sirius: cloneproc create_child 0xfffffff26ea6cf50
+SIRIUS user thread start tid 00000000000000ed
+SIRIUS user thread start pc 0000000000000000
+sirius: bsd_ast pid 1 tid 237
+sirius: init scratch 0x1000 page 4096
+load_init_program: attempting to load /sbin/launchd
+sirius: init path copyout enter /sbin/launchd
+sirius: init path copyout 0
+sirius: init argv enter
+sirius: init token enter
+sirius: init execve enter
+sirius: execve cloneproc enter
+sirius: cloneproc create_child 0xfffffff26ea81388
+sirius: execve cloneproc done
+sirius: execve proc locks enter
+sirius: execve proc locks done
+sirius: execve activate enter
+sirius: execve namei enter
+sirius: execve namei 0
+sirius: execve activate 0
+sirius: exec switch proc_active 1 task_active 1 thread_active 1
+sirius: init execve returned 0
+sirius: init exec done, arming user fault probe
+SIRIUS user thread start tid 00000000000000fd
+SIRIUS user thread start pc 0000000100e2ce50
+sirius: bsd_ast pid 1 tid 253
+NEMMC probe user thread starts 2
+NEMMC probe init asts 2
+NEMMC probe init faults 22
+SIRIUS fault class 0000000000000025
+SIRIUS fault esr 0000000096000045
+SIRIUS fault far 0000000000001000
+SIRIUS fault pc fffffff0073fa4fc
+SIRIUS fault user 0
+SIRIUS fault esr 0000000096000046
+SIRIUS fault far fffffffaa0222000
+SIRIUS fault pc fffffff007a3127c
+SIRIUS fault esr 0000000096000047
+SIRIUS fault far fffffffaa0263000
+SIRIUS fault pc fffffff007a310f8
+SIRIUS fault far 000000016f3d9e40
+SIRIUS fault pc fffffff0073fa4e0
+SIRIUS fault class 0000000000000020
+SIRIUS fault esr 0000000082000007
+SIRIUS fault far 0000000100e26c38
+SIRIUS fault pc 0000000100e26c38
+SIRIUS fault user 1
+SIRIUS fault far 0000000100e06704
+SIRIUS fault pc 0000000100e06704
+SIRIUS fault far 0000000100e1e0c8
+SIRIUS fault pc 0000000100e1e0c8
+SIRIUS fault class 0000000000000024
+SIRIUS fault esr 0000000092000006
+SIRIUS fault far 0000000100df0018
+NEMMC launchd thread fffffff26ea81388
+NEMMC launchd state/wait 0000040000000000
+sirius: init syscall 74 enter
+sirius: init syscall 74 return 0
+sirius: init syscall 372 enter
+sirius: init syscall 372 return 0
+sirius: init syscall 294 enter
+shared_region: 0xae1e7bbf456168c7 [1(launchd)] check_np(0x16f3d9bc0) vm_shared_region_start_address() failed
+sirius: init syscall 294 return 12
+sirius: init syscall 20 enter
+sirius: init syscall 20 return 0
+sirius: init syscall 427 enter
+sirius: init syscall 427 return 0
+sirius: init syscall 381 enter
+sirius: init syscall 381 return 0
+sirius: init syscall 5 enter
+sirius: init syscall 5 return 0
+sirius: init syscall 90 enter
+sirius: init syscall 90 return 0
+sirius: init syscall 4 enter
+sirius: init syscall 4 return 0
+sirius: init syscall 202 enter
+sirius: init syscall 202 return 0
+NEMMC probe init syscalls 24
+NEMMC probe init returns 24
+NEMMC probe init faults 120
+NEMMC launchd state/wait 000001f3550bc700
+SIRIUS fault map fffffff055066060
+SIRIUS fault pmap fffffff26e947f18
+SIRIUS fault ttbr0 00000000a4dda800
+SIRIUS fault recover fffffff00715d308
+SIRIUS fault addr 0000000100e6dc90
+SIRIUS fault code 0000000000000007
+SIRIUS fault result 0000000000000000
+SIRIUS fault pte 00000000000a5f1d
+SIRIUS fault par 000000000000081f
+SIRIUS fault kernpte 00000000000a5f1d
+SIRIUS init thread fffffff26ea81388
+SIRIUS init state/wait 000001f3550bc700
