@@ -15,18 +15,52 @@ root:dialout.
 
 --follow survives re-enumeration: when the read returns end-of-file or the port disappears the
 script waits for the port again and resumes appending to the same log.
+
+On Windows the inbox usbser.sys driver binds the console as a COM port (USB\\VID_1209&PID_0001,
+serial SIRIUS01) without any driver install, and the script finds it under that hardware ID:
+
+    python scripts/capture-usb-console.py --follow --output boot.log
+
+The port is opened with plain Win32 file calls and never configured: the gadget does not answer
+the CDC SET_LINE_CODING request, so SetCommState (and pyserial, which always calls it) fails with
+error 121 while reads and writes work.
 """
 import argparse
 import glob
 import os
-import select
 import sys
-import termios
 import time
-import tty
+
+try:
+    import select
+    import termios
+    import tty
+except ImportError:  # Windows: the port is a COM port, read through kernel32
+    import ctypes
+    import winreg
+    from ctypes import wintypes
+    termios = None
 
 
 def find_port():
+    if termios is None:
+        # usbser.sys records the COM name of each enumerated port in the device's registry key.
+        key = r'SYSTEM\CurrentControlSet\Enum\USB\VID_1209&PID_0001'
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key) as device:
+                for index in range(winreg.QueryInfoKey(device)[0]):
+                    instance = winreg.EnumKey(device, index)
+                    try:
+                        with winreg.OpenKey(device, instance + r'\Device Parameters') as params:
+                            name = winreg.QueryValueEx(params, 'PortName')[0]
+                    except OSError:
+                        continue
+                    # The key outlives the device; only a port that is mapped now is present.
+                    if 'SIRIUS' in instance.upper() and name in Console.present_ports():
+                        return name
+        except OSError:
+            pass
+        return None
     # A by-id link names the device even when several CDC ports are attached; the console calls
     # itself "sirius XNU USB console", so the interface name carries SIRIUS01.
     for candidate in sorted(glob.glob('/dev/serial/by-id/*')):
@@ -47,9 +81,75 @@ def wait_for_port(timeout):
     return None
 
 
+class Console:
+    """The open console port: a raw termios tty on Linux, an unconfigured COM handle on Windows."""
+
+    @staticmethod
+    def present_ports():
+        """COM names Windows currently maps (HARDWARE\\DEVICEMAP\\SERIALCOMM)."""
+        names = set()
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'HARDWARE\DEVICEMAP\SERIALCOMM') as comm:
+                for index in range(winreg.QueryInfoKey(comm)[1]):
+                    names.add(winreg.EnumValue(comm, index)[1])
+        except OSError:
+            pass
+        return names
+
+    def __init__(self, port):
+        if termios is None:
+            self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+            self.kernel32.CreateFileW.restype = wintypes.HANDLE
+            handle = self.kernel32.CreateFileW('\\\\.\\' + port, 0xC0000000, 0, None, 3, 0, None)
+            if handle == wintypes.HANDLE(-1).value:
+                raise ctypes.WinError(ctypes.get_last_error())
+            self.handle = handle
+            # Reads return what arrived within 500 ms; writes give up after 1 s. These are local
+            # to the driver and send nothing to the device, unlike SetCommState.
+            timeouts = (wintypes.DWORD * 5)(0xFFFFFFFF, 0xFFFFFFFF, 500, 0, 1000)
+            self.kernel32.SetCommTimeouts(self.handle, ctypes.byref(timeouts))
+            self.buffer = ctypes.create_string_buffer(4096)
+            return
+        self.fd = os.open(port, os.O_RDWR | os.O_NOCTTY)
+        tty.setraw(self.fd)
+        attrs = termios.tcgetattr(self.fd)
+        attrs[2] &= ~(termios.PARENB | termios.CSTOPB | termios.CSIZE)
+        attrs[2] |= termios.CS8
+        attrs[2] &= ~termios.CRTSCTS
+        attrs[4] = attrs[5] = termios.B115200
+        termios.tcsetattr(self.fd, termios.TCSANOW, attrs)
+
+    def write(self, data):
+        if termios is None:
+            done = wintypes.DWORD()
+            if not self.kernel32.WriteFile(self.handle, data, len(data), ctypes.byref(done), None):
+                raise ctypes.WinError(ctypes.get_last_error())
+        else:
+            os.write(self.fd, data)
+
+    def read(self):
+        """Up to 4096 bytes; b'' after half a second of silence, None at end-of-file."""
+        if termios is None:
+            done = wintypes.DWORD()
+            if not self.kernel32.ReadFile(self.handle, self.buffer, 4096, ctypes.byref(done), None):
+                raise ctypes.WinError(ctypes.get_last_error())  # the device went away
+            return self.buffer.raw[:done.value]
+        ready, _, _ = select.select([self.fd], [], [], 0.5)
+        if not ready:
+            return b''
+        return os.read(self.fd, 4096) or None
+
+    def close(self):
+        if termios is None:
+            self.kernel32.CloseHandle(self.handle)
+        else:
+            os.close(self.fd)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', default=None, help='CDC-ACM device, default: first /dev/ttyACM*')
+    parser.add_argument('--port', default=None,
+                        help='CDC-ACM device, default: the SIRIUS01 port (first /dev/ttyACM*, or its COM port on Windows)')
     parser.add_argument('--wait', type=float, default=60.0, help='seconds to wait for the port')
     parser.add_argument('--duration', type=float, default=0.0, help='seconds to capture, 0 = until Ctrl-C')
     parser.add_argument('--output', default='out/sirius-usb-console.log', help='log file (bytes appended)')
@@ -77,7 +177,7 @@ def main():
             while end is None or time.time() < end:
                 # Keep asking: the driver replays its ring on any host byte, and the
                 # request is only served while its pump is running.
-                if time.time() >= next_poke:
+                if termios is not None and time.time() >= next_poke:
                     try:
                         poke = open(port, 'wb', buffering=0)
                         poke.write(b'\n')
@@ -93,19 +193,12 @@ def main():
                         break
                 print(f'capturing {port} -> {args.output}', file=sys.stderr)
                 try:
-                    fd = os.open(port, os.O_RDWR | os.O_NOCTTY)
+                    console = Console(port)
                 except OSError as error:
                     print(f'{port}: {error}', file=sys.stderr)
                     port = None
                     time.sleep(1.0)
                     continue
-                tty.setraw(fd)
-                attrs = termios.tcgetattr(fd)
-                attrs[2] &= ~(termios.PARENB | termios.CSTOPB | termios.CSIZE)
-                attrs[2] |= termios.CS8
-                attrs[2] &= ~termios.CRTSCTS
-                attrs[4] = attrs[5] = termios.B115200
-                termios.tcsetattr(fd, termios.TCSANOW, attrs)
                 next_poke = 0.0
                 tail = b''
                 try:
@@ -114,16 +207,15 @@ def main():
                         # request only succeeds while its pump is alive.
                         if time.time() >= next_poke:
                             try:
-                                os.write(fd, b'\n')
+                                console.write(b'\n')
                             except OSError:
                                 pass
                             next_poke = time.time() + 1.0
-                        ready, _, _ = select.select([fd], [], [], 0.5)
-                        if not ready:
-                            continue
-                        chunk = os.read(fd, 4096)
-                        if not chunk:
+                        chunk = console.read()
+                        if chunk is None:
                             break
+                        if not chunk:
+                            continue
                         log.write(chunk)
                         log.flush()
                         total += len(chunk)
@@ -136,7 +228,7 @@ def main():
                 except OSError:
                     pass  # the device went away (reboot, re-enumeration)
                 finally:
-                    os.close(fd)
+                    console.close()
                 port = None if args.follow else port
                 if not args.follow:
                     break
