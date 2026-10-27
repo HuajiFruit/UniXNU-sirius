@@ -35,10 +35,9 @@ CONFIG_XNU_NATIVE_LEGACY_DISPLAY=n
 CONFIG_XNU_ARMVIRT_PLATFORM=n
 
 # Profile settings turned off on purpose. The ARM64 profile enables the native AES accelerator,
-# and the iPadOS profile enables the mockfs provider, the trust-cache runtime and the CS hash
-# cache. The first-console image has none of them; re-enable each one together
-# with the stage that needs it (storage/root for mockfs and the trust cache, native AES for the
-# storage path) and record the result in porting.toml.
+# and the iPadOS profile enables the mockfs provider. The first-console image has neither;
+# re-enable each one together with the stage that needs it (storage/root for mockfs, native AES
+# for the storage path) and record the result in porting.toml.
 #
 # Do NOT set CONFIG_XNU_NATIVE_ARCH_TIMER=n here. build-xnu-4k-baseline.sh derives it from
 # XNU_ARMCPU when the variable is absent, and the ARM64 profile leaves it on:
@@ -57,7 +56,11 @@ CONFIG_XNU_ARMVIRT_PLATFORM=n
 CONFIG_XNU_NATIVE_PAN=y
 CONFIG_XNU_SOURCE_MOCKFS=n
 CONFIG_XNU_TRUST_CACHE_RUNTIME=y
-CONFIG_XNU_NATIVE_CS_HASH_CACHE=n
+# On for the shared cache: iPadOS signs code in 16 KiB pages, and this 4 KiB kernel can only accept
+# such a signature through native-4k-signature-hash-cache.patch, which verifies the whole file
+# against the original hashes and derives the 4 KiB ones. Without it dyld's fcntl that registers
+# the shared cache's signature returns EBADEXEC (85). It reads the ~3 GB cache once per boot.
+CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
 
 # Compile the bsd_init call site of sheng-platform-power.patch so package/SiriusPmgr.cpp can
 # advertise the ApplePMGRNub that AMFI looks for (the target kernelcache stays unmodified).
