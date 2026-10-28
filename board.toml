@@ -195,6 +195,13 @@ owned_memory_size = "0x40000000"
 # the uke port's SHA-384 of "UkeBringup.BootSet.v1\0", the value asteroids also boots past mount with.
 boot-manifest-hash = "5fd2fc139b688ddf071aa815c1ea75d26bcd994a528cf02e365661eab5139ec7b580d63ca9319e218962a2236f23faca"
 
+[adt.chosen.u32]
+# Bring-up: skip iOS's first-boot data migration. With /chosen/ephemeral-storage datamigrator skips every
+# plugin (os_variant_uses_ephemeral_storage, found by the legacy port). On this phone the plugins wait on
+# services it does not have until a watchdog kills them (signal 9), and the migration was still not done
+# after 36 minutes at 87% idle. The cost: the staged system apps are not installed. Remove it to migrate.
+ephemeral-storage = 1
+
 [adt.product.string]
 model = "xiaomi,sirius"
 artwork-display-gamut = "sRGB"

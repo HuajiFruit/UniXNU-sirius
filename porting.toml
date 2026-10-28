@@ -37,6 +37,7 @@ procedure = [
   "Compile the hardware tree through the payload step (prototype: dtc -I dts -O dtb -i <soc>/dts dts/sirius.dts).",
 ]
 findings = [
+  "[adt.chosen.u32] sets ephemeral-storage = 1 so datamigrator skips the first-boot migration: kernel ca828cc / payload 95bcb3a showed the migration bar unfinished at t=2177 s with the CPU 87% idle and the plugin wrapper killed by signal 9; the staged system apps are not installed while it is set (see the diagnostics area).",
   "kernel_args pass validation_disables=0x10 so user stackshots are refused (see the diagnostics area).",
   "[payload] text_fixups repeats the OS profile's four fixups (a board list replaces the profile's) and adds the CoreUI sharedCIContext fixup for iconservicesagent (see the display area); kernel_args pass sirius-spawn-log=1 for the SPAWN console lines (see the diagnostics area).",
   "board.toml gained build-sirius-emmc.py in the archive list next to the USB console entry.",
