@@ -1,0 +1,83 @@
+# USB console timeline (seconds after fastboot reboot, first arrival of each line), kernel 33509e8 with the Data seed
+# kernel.macho 2e6e1ddc51b1f8b2d58c607477f81b0327d95f301382d8d4c1180096b402408a
+# payload    2bd98aa417ab6007b8c95c2071f4907dee5b4afcd09ac3899604e73dc9d21bff (seed 5679d2cf..., owned_memory_size 0x40000000)
+# python scripts/capture-usb-console.py --follow --wait 120 --duration 280 --timeline ... --match 'NEMMC PANIC TEXT END' --idle-stop 20
+    52.2 EMMC fast rate=50000 kHz multi=on run=256
+    52.2 NEMMC data seed at 00000000a3cc1000
+    52.2 NEMMC data seed bytes 33554432
+    52.3 NEMMC probe init syscalls 0
+    52.3 nx_mount:1275: disk0 initializing cache w/hash_size 4096 and cache size 10064
+    52.3 nx_mount:1275: disk1 initializing cache w/hash_size 4096 and cache size 10064
+    52.3 nx_mount:1617: disk1 checkpoint search: largest xid 4, best xid 4 @ 7
+    52.3 nx_mount:1644: disk1 stable checkpoint indices: desc 6 data 10
+    52.3 nx_mount:1275: disk2s1 initializing cache w/hash_size 4096 and cache size 10064
+    52.3 nx_mount:1617: disk2s1 checkpoint search: largest xid 418, best xid 418 @ 3
+    52.3 nx_mount:1644: disk2s1 stable checkpoint indices: desc 2 data 4
+    52.3 BSD root: disk4s1, major 1, minor 7
+    52.3 apfs_vfsop_mountroot:2965: apfs: mountroot called!
+    52.3 nx_mount:1275: disk4 initializing cache w/hash_size 4096 and cache size 10064
+    52.3 nx_mount:1617: disk4 checkpoint search: largest xid 418, best xid 418 @ 3
+    52.3 nx_mount:1644: disk4 stable checkpoint indices: desc 2 data 4
+    52.4 apfs_vfsop_mount:2675: disk4 Promoter has been locked 
+    52.4 apfs_vfsop_mount:2714: disk4s1 failed to find named root snapshot: Need authenticator (81)
+    52.4 apfs_log_op_with_proc:3091: disk4s1 mounting volume DawnUpdate21H461.J120J121J207J208OS, requested by: kernel_task (pid 0); parent: kernel_task (pid 0)
+    52.4 handle_mount:817: disk4s1 vol-uuid: 04769D26-2CA0-4825-B443-E2E5F88300F2 block size: 4096 block count: 1483776 (unencrypted; flags: 0x1; features: 8.0.12)
+    52.4 nx_mount:1617: disk0 checkpoint search: largest xid 14, best xid 14 @ 9
+    52.4 nx_mount:1644: disk0 stable checkpoint indices: desc 8 data 16
+    52.4 handle_mount:830: disk4s1 setting dev block size to 4096 from 512
+    52.4 apfs_log_op_with_proc:3091: disk4s1 mount-complete volume DawnUpdate21H461.J120J121J207J208OS, requested by: kernel_task (pid 0); parent: kernel_task (pid 0)
+    52.4 NEMMC owner volume /dev/disk6s1
+    52.4 nx_mount:1275: disk6 initializing cache w/hash_size 4096 and cache size 10064
+    52.4 nx_mount:1617: disk6 checkpoint search: largest xid 14, best xid 14 @ 9
+    52.4 nx_mount:1644: disk6 stable checkpoint indices: desc 8 data 16
+    52.4 apfs_log_op_with_proc:3091: disk6s1 mounting volume DawnUpdate21H461.J120J121J207J208SystemCryptex, requested by: init (pid 1); parent: kernel_task (pid 0)
+    52.4 handle_mount:817: disk6s1 vol-uuid: 8846FE78-2910-4297-AF97-D59BB6F8FC16 block size: 4096 block count: 806400 (unencrypted; flags: 0x1; features: 28.0.2)
+    52.4 handle_mount:830: disk6s1 setting dev block size to 4096 from 512
+    52.4 apfs_log_op_with_proc:3091: disk6s1 mount-complete volume DawnUpdate21H461.J120J121J207J208SystemCryptex, requested by: init (pid 1); parent: kernel_task (pid 0)
+    52.4 NEMMC data volume /dev/disk3s1
+    52.4 nx_mount:1275: disk3 initializing cache w/hash_size 4096 and cache size 10064
+    52.4 nx_mount:1617: disk3 checkpoint search: largest xid 4, best xid 4 @ 7
+    52.4 nx_mount:1644: disk3 stable checkpoint indices: desc 6 data 10
+    52.4 apfs_log_op_with_proc:3091: disk3s1 mounting volume OwnerData, requested by: init (pid 1); parent: kernel_task (pid 0)
+    52.4 handle_mount:817: disk3s1 vol-uuid: EB6CBBA0-ECB9-4556-A483-4B60D54D4306 block size: 4096 block count: 8192 (unencrypted; flags: 0x1; features: 1.0.2)
+    52.4 handle_mount:830: disk3s1 setting dev block size to 4096 from 512
+    52.4 apfs_log_op_with_proc:3091: disk3s1 mount-complete volume OwnerData, requested by: init (pid 1); parent: kernel_task (pid 0)
+    52.4 load_init_program: attempting to load /sbin/launchd
+    52.4 sirius: init syscall 74 enter
+    52.4 sirius: init syscall 74 return 0
+    52.4 sirius: init syscall 372 enter
+    52.4 sirius: init syscall 372 return 0
+    52.4 sirius: init syscall 294 enter
+    52.4 shared_region: 0xfff6e89caa9a67a9 [1(launchd)] check_np(0x16fc0ebb0) vm_shared_region_start_address() failed
+    52.4 sirius: init syscall 294 return 12
+    52.4 sirius: init syscall 20 enter
+    52.4 sirius: init syscall 20 return 0
+    52.4 sirius: init syscall 427 enter
+    52.4 sirius: init syscall 427 return 0
+    52.4 sirius: init syscall 381 enter
+    52.4 sirius: init syscall 381 return 0
+    52.4 sirius: init syscall 5 enter
+    52.4 sirius: init syscall 5 return 0
+    52.4 shared_region: 0xfff6e89caa9a67a9 [1(launchd)] check_np(0x16fc0e150) vm_shared_region_start_address() failed
+    52.4 sirius: init syscall 463 enter
+    52.5 sirius: init syscall 463 return 0
+    52.5 sirius: init syscall 339 enter
+    52.5 sirius: init syscall 339 return 0
+    52.5 sirius: init syscall 153 enter
+    52.5 sirius: init syscall 153 return 0
+    52.5 sirius: init syscall 92 enter
+    52.5 sirius: init syscall 92 return 0
+    52.5 sirius: init syscall 197 enter
+    52.5 sirius: init syscall 197 return 0
+    52.5 sirius: init syscall 73 enter
+    52.5 sirius: init syscall 73 return 0
+    54.2 NEMMC probe init syscalls 22
+    56.2 NEMMC probe init syscalls 24
+   157.7 DT_get_fstab_entries:12205: failed to get filesystem entry at: /filesystems/fstab
+   157.7 pid 3 exited -- no exit reason available -- (signal 0, exit 66)
+   157.7 coredump (mount, pid 3): writing core to /private/var/cores/mount.core
+   157.7 coredump (mount, pid 3): failed to open core dump file /private/var/cores/mount.core: error 2
+   157.7 coredump (mount, pid 3): core dump failed: error 2
+   158.3 NEMMC PANIC TEXT BEGIN
+   158.3 mount[3] exited EL0 breakpoint record unavailable -- no exit reason available -- (signal 0, exit status 66 )
+   158.3 NEMMC PANIC TEXT END

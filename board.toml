@@ -138,6 +138,13 @@ owned_memory_size = "0x40000000"
 # The Apple device-tree properties the OS profile does not already supply. Its [adt] tables
 # write /chosen, /product and the iPad7,1 identity (model iPad7,1, target-type J120); the board
 # adds the suspend policy, its own product model and the button set (no Home button).
+[adt.chosen.bytes]
+# launchd's first boot task, mount -P 1, exits 66 without /chosen/boot-manifest-hash ("failed to
+# get boot-manifest-hash"); it names /private/preboot/<hash> from it. There is no Apple
+# personalization manifest here, so this is an explicit bring-up boot-set identity, not Apple data:
+# the uke port's SHA-384 of "UkeBringup.BootSet.v1\0", the value asteroids also boots past mount with.
+boot-manifest-hash = "5fd2fc139b688ddf071aa815c1ea75d26bcd994a528cf02e365661eab5139ec7b580d63ca9319e218962a2236f23faca"
+
 [adt.product.string]
 model = "xiaomi,sirius"
 
