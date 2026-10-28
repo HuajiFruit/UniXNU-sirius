@@ -64,6 +64,7 @@ archives = [
   "build-sirius-usb.py",              # the CDC-ACM log console (kits/sirius/sirius_usb.c)
   "build-sirius-emmc.py",             # read-only SDCC1 probe (kits/sirius/sirius_emmc.c)
   "build-sirius-cpufreq.py",          # cpufreq-hw level request (kits/sirius/sirius_cpufreq.c)
+  "build-sirius-touch.py",            # FTS521 touch probe on QUP1 SE1 (kits/sirius/sirius_touch.c)
   "build-native-emmc.py",             # the IOKit block driver (kits/sirius/NativeEmmc.cpp); its
                                      # IOStorageFamily imports are bound to the original kernelcache
 ]
@@ -163,6 +164,7 @@ kernel_args = [
   "sheng-aks=1",                    # its user client answers the state queries (no passcode, unlocked): with
                                     # persistent Data SpringBoard does not finish booting without them
   "sirius-spawn-log=1",             # package/BootProgress.c: a SPAWN console line per exec and exit, with the second
+  "sirius-touch=1",                 # package/sirius_touch.c: QUP1 SE1 I2C, FTS521 chip id, then the event FIFO
   "validation_disables=0x10",       # KF_STACKSHOT_OVRD: user stackshots return KERN_NOT_SUPPORTED. Watchdogs ask
                                     # for one before they kill a hung job, and on this port threads keep changing while
                                     # it runs, so the DEVELOPMENT check panics: "thread wait info count mismatch while

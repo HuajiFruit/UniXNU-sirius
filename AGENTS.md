@@ -52,7 +52,8 @@ Before the stand-in the stop was: nothing draws into the presented frames. Next,
    SWAP/FB/GPU counters on screen; read it after each boot.
 2. **Copy cost.** 180–190 ms per full-frame CPU copy caps the screen at about 5 fps.
 3. **liveactivitiesd** traps at PC `0x1ca09a4f8`; symbolize it against the 21H461 shared cache.
-4. **Touch:** Synaptics S3706 on I2C; the OnePlus 6T (`fajita`) port has a driver to adapt.
+4. **Touch:** an ST FTS521 at I2C 0x49 on QUP1 SE1 (57UU/linux-sirius `sdm710-xiaomi-sirius.dts`, driver
+   `drivers/input/touchscreen/fts_521`); `package/sirius_touch.c` is the probe, ShengHidInput the iOS side.
 5. Later: DDR52/HS200 eMMC (`EXT_CSD type 0x57`; DDR52 needs no tuning); more than a 1 GiB
    window below 4 GiB; a clean upstream PR to 57UU (broken CI, no PAN/eMMC/Data/display fixes);
    `CONFIG_XNU_OWNER_DATA_VOLUME_UUID` still names the RAM seed `E06A21C1…`, not `0C28586B…`

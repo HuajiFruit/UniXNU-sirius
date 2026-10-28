@@ -37,6 +37,7 @@ procedure = [
   "Compile the hardware tree through the payload step (prototype: dtc -I dts -O dtb -i <soc>/dts dts/sirius.dts).",
 ]
 findings = [
+  "[kernel] archives build build-sirius-touch.py into libShengPlatformPower.a and kernel_args pass sirius-touch=1 for the FTS521 touch probe (see the input area).",
   "[adt.chosen.u32] sets ephemeral-storage = 1 so datamigrator skips the first-boot migration: kernel ca828cc / payload 95bcb3a showed the migration bar unfinished at t=2177 s with the CPU 87% idle and the plugin wrapper killed by signal 9; the staged system apps are not installed while it is set (see the diagnostics area).",
   "kernel_args pass validation_disables=0x10 so user stackshots are refused (see the diagnostics area).",
   "[payload] text_fixups repeats the OS profile's four fixups (a board list replaces the profile's) and adds the CoreUI sharedCIContext fixup for iconservicesagent (see the display area); kernel_args pass sirius-spawn-log=1 for the SPAWN console lines (see the diagnostics area).",
@@ -309,6 +310,7 @@ procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
 ]
 findings = [
+  "native_legacy_display_late_probe also calls sirius_touch_start() (package/sirius_touch.c, sirius-touch=1; see the input area).",
   "With the CoreUI fixup the panel shows crashes=0 at 335 s (iconservicesagent no longer dies) and the migration progress bar at about half; console: every load of dyld_shared_cache_arm64.11 logs text-fixup +0x34f3b84 (8 bytes) applied.",
   "iconservicesagent's crash is CI::GLContext::init+220 calling blr x8 with x8 from the GL dispatch table that GetMacroContext left zeroed (no OpenGL ES driver), reached from +[CUIShapeEffectStack sharedCIContext] = [CIContext contextWithOptions:[CUIShapeEffectStack preferredCIContextOptions]]. CoreImage has no environment switch to a CPU renderer (its CI_* strings checked). board.toml [payload] text_fixups patches that bl (dyld_shared_cache_arm64.11 file offset 0x34f3b84, unslid 0x1a31d7b84) to mov x0, xzr: -[_CUIGraphicVariantVectorGlyph _createGraphicVariantImageAtScale:] then returns the NULL of [nil createCGImage:fromRect:] and -[IFSymbol imageForGraphicSymbolDescriptor:] branches on it (cbz x26), so the symbol draws empty.",
   "Kernel afdb4b1 / payload e167d8c (commit 05f5aa8), photo at t=345 s: the panel stays readable above the Apple logo; FB 65 swaps/s, copy mean 9.7 ms, max 15.6 ms; LOAD user 0%, sys 13%, idle 85%; storage idle. The boot is not CPU-, storage- or copy-bound: it waits. An earlier photo at t=3500 s showed the progress bar full and then 0 swaps/s at 99% idle. The bar is iOS's data migration (DataMigrator; its done marker is LastSystemVersion in /var/mobile/Library/Preferences/com.apple.DataMigration.plist, and it kills a plugin after a watchdog timeout): the panel shows com.apple.migrationpluginwrapper ended by signal 9 (exit-reason namespace 2).",
@@ -351,10 +353,10 @@ evidence = [
 id = "input"
 status = "planned"
 components = []
-paths = ["docs/HANDOFF.zh-CN.md"]
+paths = ["docs/HANDOFF.zh-CN.md", "package/sirius_touch.c", "scripts/build-sirius-touch.py"]
 inputs = [
   "The board has no Home button; volume keys are reported by the button node of the ADT.",
-  "The touch controller is not identified for this unit yet.",
+  "57UU/linux-sirius (feat/sirius-7.2, sdm710-xiaomi-sirius.dts): the touch controller is an ST FTS521 (st,fts521) at I2C 0x49 on i2c9 = QUP1 SE1 at 0xa84000 (GCC_QUPV3_WRAP1_S1_CLK, SPI 354, SDA/SCL gpio6/gpio7 function qup9), interrupt gpio125 active low, reset gpio99, vdd = tp_vddio_vreg (gpio26, regulator-boot-on), avdd = PM660L LDO6 (vreg_l6b_3p3, RPMh); touchscreen-size 1080 x 2244, keys 158/139. Not the Synaptics S3706 the earlier notes assumed.",
 ]
 configuration = [
   "board.toml writes [adt.buttons] with hold, voldown, volup and home-button-type = 2.",
@@ -363,6 +365,7 @@ procedure = [
   "Follow the input guide once a touch controller is known, then select an implementation.",
 ]
 findings = [
+  "package/sirius_touch.c (sirius-touch=1, started from native_legacy_display_late_probe): votes the QUP1 M/S AHB and SE1 clocks (GCC 0x5200c bits 20/21/23), checks their CBCRs before any SE access, sets the SE1 RCG to XO, programs FIFO-mode GENI I2C at 400 kHz (Linux geni_i2c_clk_map_19p2mhz: divider 2, 5/11/22), sets the pins, drives gpio26 high, pulses reset on gpio99, reads the FTM5 chip id (0xfa 0x20000000, expected 0x36 0x39), resets the chip (0x80 to 0x20000024, waits for event 0x03), turns sensing on (0xa0 0x00 0x01) and polls the event FIFO (0x86, 8-byte events: enter 0x13, motion 0x23, leave 0x33). Contacts go out as TOUCH console lines and through native_touch_* (the board side of ShengHidInput, in its 30480 x 20320 units). Not run on hardware yet.",
   "The SDCC1 probe does not touch the ADT buttons, so the input row and its hold/voldown/volup mapping are unchanged.",
   "No input component is selected; the button node exists so that BSPlatform and MobileGestalt read a coherent product.",
 ]
@@ -534,6 +537,7 @@ procedure = [
   "./unixnu build kernel, ./unixnu build package, then bash scripts/build-darwinboot.sh (or the CI workflow), ./unixnu build payload, and finally make-uboot-payload.py --output the volume to flash.",
 ]
 findings = [
+  "scripts/build-sirius-touch.py compiles package/sirius_touch.c like build-sirius-cpufreq.py and adds it to libShengPlatformPower.a.",
   "The eMMC probe ships in the same force-loaded archive as the USB console, so the package list and payload layout are unchanged.",
   "scripts/build-arm-driver.py replaces the tree's copy, so a component recipe that names it must be one of its choices: AppleKeyStoreState builds drivers/AppleKeyStoreState/NativeKeyStoreEvents.cpp into build/apple-key-store-state/libAppleKeyStoreState.a.",
   "Format 2 generates kernel.macho.adt from the DTS, so the legacy ADT script is retired; make-uboot-payload.py still finishes the volume because U-Boot needs the EFI binaries inside it.",
@@ -582,6 +586,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "package/sirius_touch.c logs each touch bring-up step as a TOUCH console line (see the input area).",
   "Kernel ca828cc (commit 144de65) / payload 95bcb3a (commit 1ce0478): no panic. SPAWN timeline (docs/evidence/sirius-spawn-20261028-nostackshot.log): launchd's boot tasks at 139 s, SpringBoard at 142 s, backboardd 148 s, com.apple.datamigrator 151 s, iconservicesagent 154 s (it no longer crashes), com.apple.migrationpluginwrapper 193 s and still running at 244 s; after 200 s only about 20 more execs. The console heartbeat stopped at about 258 s and later windows only trickled the old buffer (1.1 MB in 5 min), but the kernel kept running: the panel at t=2177 s shows crashes=0, the migration bar full, 62 swaps/s, idle 87%, RepackagingWorker killed by RunningBoard (signal 9, namespace 15) and the plugin wrapper by a signal 9. The same console stop came before the 335 s stackshot panic of payload cac4a55, so a stopped heartbeat alone is not a hung kernel.",
   "Kernel afdb4b1 / payload cac4a55 (commit 144de65, the CoreUI fixup) panicked at 335 s with \"thread wait info count mismatch while capturing snapshots for task ...\" (kern_stackshot.c:3451); the console carried no panic text, the heartbeat stopped at beat 0x84. That check is DEVELOPMENT-only and fires when a thread's wait state changes between the count and the capture of a user stackshot, so not every CPU holds still during a stackshot on this port. kernel_args now pass validation_disables=0x10 (KF_STACKSHOT_OVRD): kern_stack_snapshot_internal returns KERN_NOT_SUPPORTED to every stackshot request.",
   "package/BootProgress.c prints SPAWN <second>s exec <pid> <name> after an exec passes its signature check and SPAWN <second>s exit <pid> <name> status= ns= code= at every exit when sirius-spawn-log=1: the panel keeps only the last three failures, and the console carried no userspace timeline, so which job the idle boot waits on (and the migration plugins' watchdog interval) was not visible.",
