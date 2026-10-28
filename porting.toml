@@ -39,6 +39,7 @@ procedure = [
 findings = [
   "board.toml gained build-sirius-emmc.py in the archive list next to the USB console entry.",
   "board.toml selects AppleKeyStoreState in [components] include and passes offline-key-events=1 and sheng-aks=1 for the AppleKeyStore stand-in (see the power area).",
+  "kernel_args pass sirius-fb-wc=1 for the GopFramebuffer board fork (drivers/GopFramebuffer): the scanout is mapped write-combined instead of uncached (see the display area).",
   "A selected component with a kernel build recipe needs a component: entry in [kernel] archives, or unixnu stops with 'archives needs component entries'; that recipe runs the tree's build-arm-driver.py, which is this repository's copy, so it has to know the component's name. The recipe's archive is not linked: the kernel force-loads only the archives build-xnu-4k-baseline.sh names.",
   "board.toml lists build-sirius-emmc.py alongside the other archives, because the SDCC1 probe is compiled the same way as the USB console and joins the same force-loaded archive.",
   "Format 2 replaced the hand-written ADT generator of the legacy port (scripts/make-sirius-adt.py) with a board DTS: the payload step compiles the tree and derives kernel.macho.adt from it.",
