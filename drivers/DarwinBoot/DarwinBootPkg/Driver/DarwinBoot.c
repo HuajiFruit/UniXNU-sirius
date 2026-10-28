@@ -758,6 +758,56 @@ AllocateWindow (KERNEL *Kernel, UINT64 WindowSize, EFI_PHYSICAL_ADDRESS *Address
   return Status;
 }
 
+// sirius: append the free memory runs of at least 64 MiB, as AllocateWindow sees them, to the kernel command line as
+// db-runs=<start>+<bytes>,... (hex, up to eight). The kernel prints them on its console, so the real layout can size
+// owned_memory_size without a photograph of the "NO WINDOW" screen. A run that does not fit in the line is left out.
+STATIC
+VOID
+AppendFreeRuns (CHAR8 *Line, UINTN Capacity)
+{
+  EFI_MEMORY_DESCRIPTOR *Map;
+  EFI_MEMORY_DESCRIPTOR *Descriptor;
+  UINTN                 MapCapacity;
+  UINTN                 Size;
+  UINTN                 Key;
+  UINTN                 Stride;
+  UINTN                 Offset;
+  UINTN                 Used;
+  UINTN                 Count;
+  UINTN                 Index;
+  UINT64                Start;
+  UINT64                End;
+  UINT64                Runs[8][2];
+  CHAR8                 Entry[48];
+  BOOLEAN               Seen;
+
+  Map = NULL;
+  MapCapacity = 0;
+  if (EFI_ERROR (GetMap (&Map, &MapCapacity, &Size, &Key, &Stride))) { if (Map != NULL) { FreePool (Map); } return; }
+  Used = AsciiStrLen (Line);
+  Count = 0;
+  for (Offset = 0; (Offset + Stride <= Size) && (Count < 8); Offset += Stride) {
+    Descriptor = (EFI_MEMORY_DESCRIPTOR *)((UINT8 *)Map + Offset);
+    if ((Descriptor->Type != EfiConventionalMemory) || (Descriptor->NumberOfPages == 0)) { continue; }
+    Start = Descriptor->PhysicalStart;
+    Seen = FALSE;
+    for (Index = 0; Index < Count; Index++) {
+      if ((Start >= Runs[Index][0]) && (Start < Runs[Index][1])) { Seen = TRUE; }
+    }
+    if (Seen) { continue; }
+    End = RunEnd (Map, Size, Stride, Start, Start + EFI_PAGES_TO_SIZE (Descriptor->NumberOfPages));
+    if (End - Start < SIZE_64MB) { continue; }
+    AsciiSPrint (Entry, sizeof (Entry), "%a%lx+%lx", (Count == 0) ? " db-runs=" : ",", Start, End - Start);
+    if (Used + AsciiStrLen (Entry) >= Capacity) { break; }
+    CopyMem (Line + Used, Entry, AsciiStrLen (Entry) + 1);
+    Used += AsciiStrLen (Entry);
+    Runs[Count][0] = Start;
+    Runs[Count][1] = End;
+    Count++;
+  }
+  FreePool (Map);
+}
+
 STATIC
 EFI_STATUS
 EFIAPI
@@ -905,6 +955,7 @@ Boot (
   }
   Status = ReadBootVideo (Video);
   if (EFI_ERROR (Status)) { goto Fail; }
+  AppendFreeRuns (CommandLine, sizeof (CommandLine));
   Status = AllocateWindow (&Kernel, WindowSize, &Address);
   if (EFI_ERROR (Status)) { goto Fail; }
   ArgsAddress = ALIGN_VALUE (Address + Kernel.End - Kernel.Base, SIZE_16KB);

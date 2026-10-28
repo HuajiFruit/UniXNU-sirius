@@ -63,6 +63,7 @@ archives = [
   "build-sirius-pmgr.py",             # the ApplePMGRNub advertisement for AMFI (kits/sirius/SiriusPmgr.cpp)
   "build-sirius-usb.py",              # the CDC-ACM log console (kits/sirius/sirius_usb.c)
   "build-sirius-emmc.py",             # read-only SDCC1 probe (kits/sirius/sirius_emmc.c)
+  "build-sirius-cpufreq.py",          # cpufreq-hw level request (kits/sirius/sirius_cpufreq.c)
   "build-native-emmc.py",             # the IOKit block driver (kits/sirius/NativeEmmc.cpp); its
                                      # IOStorageFamily imports are bound to the original kernelcache
 ]
@@ -141,6 +142,8 @@ kernel_args = [
   "offline-apfs-load=1",            # load APFS
   "sheng-vsync=60",                 # 60 Hz software vsync heartbeat
                                     # patches/xnu/sirius-skip-rootauth.patch
+  "sirius-cpufreq=1",               # kits/sirius/sirius_cpufreq.c: both clusters to their highest non-boost level;
+                                    # the boot chain leaves the A75s at 300 MHz
   "offline-key-events=1",           # kits/sirius/KeyStoreProbe.cpp publishes the AppleKeyStoreState service
   "sheng-aks=1",                    # its user client answers the state queries (no passcode, unlocked): with
                                     # persistent Data SpringBoard does not finish booting without them

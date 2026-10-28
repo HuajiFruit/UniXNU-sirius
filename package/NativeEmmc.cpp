@@ -270,6 +270,41 @@ nemmc_log_cpu_clock(void)
 	emmc_log_dec("NEMMC cpu MHz ", (cycles1 - cycles0) * frequency / (ticks1 - ticks0) / 1000000);
 }
 
+/* The memory XNU got (DarwinBoot's window) and the free runs DarwinBoot saw before it placed it (db-runs on the command line,
+ * drivers/DarwinBoot): the real layout that bounds owned_memory_size. */
+extern "C" unsigned long gPhysBase, gPhysSize;
+extern "C" int sirius_cpufreq_report(unsigned domain, uint32_t state[6], uint32_t *vote_mhz) __attribute__((weak_import));
+
+static void
+nemmc_log_memory(void)
+{
+	char runs[320];
+
+	/* package/sirius_cpufreq.c: per cluster the enable bit, table rows, index before and requested (ff = none), the kHz of row 0
+	 * and of the highest non-boost row, then the MHz the hardware currently votes. */
+	for (unsigned domain = 0; &sirius_cpufreq_report && domain < 2; domain++) {
+		uint32_t state[6], vote = 0;
+
+		if (sirius_cpufreq_report(domain, state, &vote)) {
+			emmc_log_dec("NEMMC cpufreq domain ", domain);
+			emmc_log_hex("NEMMC cpufreq enable/rows/before/request ",
+			    ((uint64_t)state[0] << 48) | ((uint64_t)state[1] << 32) | ((uint64_t)state[2] << 16) | state[3]);
+			emmc_log_dec("NEMMC cpufreq row0 kHz ", state[4]);
+			emmc_log_dec("NEMMC cpufreq best kHz ", state[5]);
+			emmc_log_dec("NEMMC cpufreq vote MHz ", vote);
+		}
+	}
+	emmc_log_hex("NEMMC window base ", gPhysBase);
+	emmc_log_hex("NEMMC window size ", gPhysSize);
+	if (PE_parse_boot_arg_str("db-runs", runs, sizeof(runs))) {
+		emmc_log("NEMMC db-runs ");
+		emmc_log(runs);
+		emmc_log("\n");
+	} else {
+		emmc_log("NEMMC db-runs none\n");
+	}
+}
+
 static void
 nemmc_heartbeat_thread(void *, wait_result_t)
 {
@@ -314,6 +349,7 @@ nemmc_heartbeat_thread(void *, wait_result_t)
 		}
 		if ((nemmc_heartbeats % 16) == 0) {
 			nemmc_log_cpu_clock();
+			nemmc_log_memory();
 		}
 		{
 			static int reported;

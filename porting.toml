@@ -39,6 +39,7 @@ procedure = [
 findings = [
   "board.toml gained build-sirius-emmc.py in the archive list next to the USB console entry.",
   "board.toml selects AppleKeyStoreState in [components] include and passes offline-key-events=1 and sheng-aks=1 for the AppleKeyStore stand-in (see the power area).",
+  "kernel_args pass sirius-cpufreq=1 and [kernel] archives build build-sirius-cpufreq.py into libShengPlatformPower.a (see the power area).",
   "kernel_args pass sirius-fb-wc=1 for the GopFramebuffer board fork (drivers/GopFramebuffer): the scanout is mapped write-combined instead of uncached (see the display area).",
   "A selected component with a kernel build recipe needs a component: entry in [kernel] archives, or unixnu stops with 'archives needs component entries'; that recipe runs the tree's build-arm-driver.py, which is this repository's copy, so it has to know the component's name. The recipe's archive is not linked: the kernel force-loads only the archives build-xnu-4k-baseline.sh names.",
   "board.toml lists build-sirius-emmc.py alongside the other archives, because the SDCC1 probe is compiled the same way as the USB console and joins the same force-loaded archive.",
@@ -96,6 +97,7 @@ procedure = [
   "U-Boot boots UniXNU when /EFI/UniXNU/BOOTUNIXNU exists on the vendor partition and boots Linux otherwise.",
 ]
 findings = [
+  "DarwinBoot (board fork) appends the free conventional-memory runs of at least 64 MiB it sees before placing the window to the kernel command line as db-runs=<start>+<bytes>,... (hex, up to eight); the kernel prints them, so the real layout can size owned_memory_size without the NO WINDOW screen.",
   "The eMMC work adds no firmware component: the payload still boots through U-Boot with the same marker file.",
   "U-Boot's UEFI services are enough for UniXNU, DarwinBoot and XNU: no Mu-Silicium platform port is needed for this board.",
   "DarwinBoot's GIC-500 pre-configuration (the iBoot role) is what lets the kernel pass lockdown and start kexts on this SoC.",
@@ -168,6 +170,7 @@ procedure = [
   "Read the MEM row of the boot-progress panel and compare it with the DTS range.",
 ]
 findings = [
+  "A window larger than 1 GiB is bounded by the eMMC's 32-bit ADMA2: the kernel image's static descriptor and single-block buffers and the run bounce buffer (IOMalloc) must stay below 4 GiB, and sirius_emmc_read_blocks refuses a page above it; DarwinBoot takes the first free run that fits. The heartbeat now prints the window (NEMMC window base/size) and DarwinBoot's free runs (NEMMC db-runs) so the next size is chosen from the measured layout.",
   "The eMMC probe maps two register windows (GCC and SDCC1) and reads only; the payload memory map is unchanged.",
   "The single contiguous range is what DarwinBoot's window allocation and the ADT handoff require; the two physical banks are described as one range on purpose.",
 ]
@@ -202,7 +205,7 @@ procedure = [
   "Read the evidence off the boot-progress console: the probe prints the GPT rows, the driver logs the block count it publishes.",
 ]
 findings = [
-  "NativeEmmc's heartbeat also carries the display copy counters every fourth beat (NEMMC fb copies, copy last/mean/max us, read last us, cache source/scanout/wimg) and every sixteenth beat the clock of the core it runs on (NEMMC cpu mpidr, NEMMC cpu MHz), because past about 220 s the console has no other source for them; the storage path is unchanged.",
+  "NativeEmmc's heartbeat also carries the display copy counters every fourth beat (NEMMC fb copies, copy last/mean/max us, read last us, cache source/scanout/wimg) and every sixteenth beat the clock of the core it runs on (NEMMC cpu mpidr, NEMMC cpu MHz), the cpufreq-hw state of both clusters and the memory layout (NEMMC window base/size, NEMMC db-runs), because past about 220 s the console has no other source for them; the storage path is unchanged.",
   "The data path works: ADMA2 reads return EFI PART from LBA 1, the GPT header parses (entries_lba=2, count=84, size=128) and 81 partitions with geometry are listed; boot 1179648..1310719, vendor 11010048..17301503, userdata 17301504..122142686.",
   "Five conditions had to hold at once: the RCG2 encoding (CFG=0x2017, M=1, N=0xfc, D=0xfb), 1.8 V I/O (the board's vqmmc), the 32-bit interrupt/error map at 0x30/0x32/0x36, the ADMA descriptor address at 0x58/0x5c rather than 0x00, and cache maintenance (flush_dcache64) because the engine reads memory and not the CPU cache.",
   "SMMU is not the blocker: the boot chain leaves it disabled (scr0=0x00230406, bit0=0) and writing S2CR hung the SoC twice, so the driver only reads SMMU state.",
@@ -459,7 +462,7 @@ evidence = []
 id = "power"
 status = "planned"
 components = ["AppleKeyStoreState"]
-paths = ["dts/sirius.dts", "package/KeyStoreProbe.cpp"]
+paths = ["dts/sirius.dts", "package/KeyStoreProbe.cpp", "package/sirius_cpufreq.c", "scripts/build-sirius-cpufreq.py"]
 inputs = [
   "No suspend/resume path exists; the boot-progress panel is the only power-facing behaviour so far.",
   "There is no SEP: nothing answers AppleKeyStore, which the unchanged libaks/MobileKeyBag ask for the device and lock state.",
@@ -475,6 +478,8 @@ procedure = [
 findings = [
   "The eMMC probe does not vote any RPMH resource; it re-enables the GCC SDCC1 branches that the boot chain had already set.",
   "Reset works through PSCI (the stage-3 reset loop proved it).",
+  "Measured with the PMU cycle counter (kernel 5df62c0, payload 8a04814): the Cortex-A55s run at 1516 MHz and the Cortex-A75s at 300 MHz, the cpufreq-hw source-0 row (GPLL0/2) the boot chain leaves (out/Q-cpuclk captures, NEMMC cpu MHz).",
+  "package/sirius_cpufreq.c (sirius-cpufreq=1) reads each cluster's cpufreq-hw table (0x17d43000 cpu0-5, 0x17d45800 cpu6-7; rows at 0x110 + 32 i, PERF_STATE 0x920, current vote 0x704, the Linux qcom-cpufreq-hw layout for sdm670) at EARLY_BOOT and requests the highest non-boost row; the hardware sets voltage and its limits. The register bases are SoC facts that belong in the sdm710 SoC repository once proven.",
   "On asteroids SpringBoard never finished booting on persistent Data without the AppleKeyStore stand-in and reached its first picture with it (UniXNU docs/devices/asteroids.md, T20-T29); sirius shows the same state: persistent Data, SpringBoard no longer crashing, a few black frames and then no swaps.",
 ]
 completion = [
@@ -557,6 +562,8 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "The boot of kernel 5df62c0 / payload 8a04814 froze at about 244 s: the heartbeat stopped at beat 0x50, after that beat's clock measurement had returned and printed, with no panic text mirrored (out/Q-cpuclk captures). The cause is not known; the earlier boots without the PMU read ran 19 minutes.",
+  "Every sixteenth beat the heartbeat also prints each cluster's cpufreq-hw state (NEMMC cpufreq enable/rows/before/request, row0 and best kHz, vote MHz) and the memory layout (NEMMC window base/size, NEMMC db-runs).",
   "NEMMC cpu MHz counts the architectural PMU cycle counter (PMCCNTR_EL0, PMCR_EL0.E set and .D cleared, restored afterwards) over 10 ms of the system counter with interrupts off, and NEMMC cpu mpidr names the core: Affinity1 0x000-0x500 are the Cortex-A55s, 0x600-0x700 the Cortex-A75s. No CPU frequency driver exists, so it shows the clock the boot chain left.",
   "The NEMMC fb rows print the copy cost on the console: copies, last/mean/max copy time, the last timed read-only pass over a source frame, and the source map options, scanout map options and the source page's pmap attribute (VM_WIMG_*), packed as source<<40 | scanout<<20 | wimg.",
   "Past about 220 s the USB console only re-mirrors fragments of the kernel log buffer: iOS userspace does not log to it, so four 280 s windows after the not_in_kdp text add no new event (docs/evidence/sirius-usb-console-20261028-fbwc.log). Later stages are read from the screen and the panel.",
