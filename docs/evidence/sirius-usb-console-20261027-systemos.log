@@ -1,0 +1,88 @@
+# Distinct lines of two USB console captures (Windows, COM7, scripts/capture-usb-console.py --follow)
+# F: kernel 24f6094 (SystemOS union mount), kernel.macho 5d045f1a6d6ddad44331a7e6ea8b1cc74a8c84058916287a83603ab912a66038, payload 6b6c562c1e8c91eb2c776fc6ef5f58227fd9eb000872ddb6e2fff6844886515a
+# G: kernel 86fe9ff (plus CONFIG_XNU_NATIVE_CS_HASH_CACHE=y), kernel.macho a10c51aa4fab72faf86912e1ca6736c0d068432ceff1b233f47948197848b8c4, payload 8402424eb1d9d4126cfe19ab2eb3742aad40d7ba5149267534ae94a7e745c2ce
+## F
+NEMMC owner volume /dev/disk4s1
+nx_mount:1275: disk4 initializing cache w/hash_size 1024 and cache size 2500
+apfs_log_op_with_proc:3091: disk4s1 mounting volume DawnUpdate21H461.J120J121J207J208SystemCryptex, requested by: init (pid 1); parent: kernel_task (pid 0)
+handle_mount:817: disk4s1 vol-uuid: 8846FE78-2910-4297-AF97-D59BB6F8FC16 block size: 4096 block count: 806400 (unencrypted; flags: 0x1; features: 28.0.2)
+apfs_log_op_with_proc:3091: disk4s1 mount-complete volume DawnUpdate21H461.J120J121J207J208SystemCryptex, requested by: init (pid 1); parent: kernel_task (pid 0)
+load_init_program: attempting to load /sbin/launchd
+sirius: init syscall 74 enter
+sirius: init syscall 74 return 0
+sirius: init syscall 372 enter
+sirius: init syscall 372 return 0
+sirius: init syscall 294 enter
+shared_region: 0x8f80824a1d767f59 [1(launchd)] check_np(0x16eec0bb0) vm_shared_region_start_address() failed
+sirius: init syscall 294 return 12
+sirius: init syscall 20 enter
+sirius: init syscall 20 return 0
+sirius: init syscall 427 enter
+sirius: init syscall 427 return 0
+sirius: init syscall 381 enter
+sirius: init syscall 381 return 0
+sirius: init syscall 5 enter
+sirius: init syscall 5 return 0
+shared_region: 0x8f80824a1d767f59 [1(launchd)] check_np(0x16eec0150) vm_shared_region_start_address() failed
+sirius: init syscall 463 enter
+sirius: init syscall 463 return 0
+sirius: init syscall 339 enter
+sirius: init syscall 339 return 0
+sirius: init syscall 153 enter
+sirius: init syscall 153 return 0
+sirius: init syscall 92 enter
+sirius: init syscall 92 return 85
+sirius: init syscall 6 enter
+sirius: init syscall 6 return 0
+sirius: init syscall 4 enter
+sirius: init syscall 4 return 9
+sirius: init syscall 4 return 0
+sirius: init syscall 345 enter
+sirius: init syscall 345 return 0
+sirius: init syscall 202 enter
+sirius: init syscall 202 return 0
+## G
+NEMMC probe init syscalls 0
+NEMMC probe init faults 0
+NEMMC owner volume /dev/disk4s1
+NEMMC probe init faults 3
+sirius: init syscall 74 enter
+sirius: init syscall 74 return 0
+sirius: init syscall 372 enter
+sirius: init syscall 372 return 0
+sirius: init syscall 294 enter
+shared_region: 0x466fed60459bf549 [1(launchd)] check_np(0x16f50abb0) vm_shared_region_start_address() failed
+sirius: init syscall 294 return 12
+sirius: init syscall 20 enter
+sirius: init syscall 20 return 0
+sirius: init syscall 427 enter
+sirius: init syscall 427 return 0
+sirius: init syscall 381 enter
+sirius: init syscall 381 return 0
+sirius: init syscall 5 enter
+sirius: init syscall 5 return 0
+shared_region: 0x466fed60459bf549 [1(launchd)] check_np(0x16f50a150) vm_shared_region_start_address() failed
+sirius: init syscall 463 enter
+sirius: init syscall 463 return 0
+sirius: init syscall 339 enter
+sirius: init syscall 339 return 0
+sirius: init syscall 153 enter
+sirius: init syscall 153 return 0
+sirius: init syscall 92 enter
+NEMMC probe init syscalls 22
+NEMMC probe init faults 212
+NEMMC probe init syscalls 24
+NEMMC probe init faults 234
+NEMMC probe init faults 256
+NEMMC probe init faults 278
+NEMMC probe init faults 300
+## G heartbeat: beats reads blocks (hex beats/reads, decimal shown)
+beat 1 reads 201 blocks 1545
+beat 71 reads 2039 blocks 108543
+beat 163 reads 4319 blocks 250327
+beat 255 reads 6593 blocks 392167
+beat 331 reads 8478 blocks 509207
+beat 413 reads 10504 blocks 635623
+beat 484 reads 12263 blocks 744847
+beat 567 reads 14321 blocks 872647
+beat 638 reads 16076 blocks 982111

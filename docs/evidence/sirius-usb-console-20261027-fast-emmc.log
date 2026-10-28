@@ -1,0 +1,55 @@
+# Distinct lines of the USB console, kernel 1163990 (multi-block eMMC reads, verified clock ladder, sirius_emmc_hs=3)
+# kernel.macho 3452714ae8b3ef3b775bed9cde5f93c11fc2d147e0375eec22430fb0dcf70999
+# payload    24118c6275d90fba6dd3e684353d4525640c7d627042092868a413609686f110
+# python scripts/capture-usb-console.py --follow --wait 180 --duration 900 (Windows, COM7); 123,747,665 bytes captured
+EMMC ext_csd rev=8 width=2 timing=1 type=57 hc=34 hc2=0a
+EMMC multi=ok eis=0000 baseline=0000
+EMMC rate 25000 kHz ok
+EMMC rate 50000 kHz ok
+EMMC fast rate=50000 kHz multi=on run=256
+NEMMC probe init syscalls 0
+NEMMC owner volume /dev/disk4s1
+sirius: init syscall 74 enter
+sirius: init syscall 74 return 0
+sirius: init syscall 372 enter
+sirius: init syscall 372 return 0
+sirius: init syscall 294 enter
+shared_region: 0x9e33cf563e35f0f3 [1(launchd)] check_np(0x16f570bb0) vm_shared_region_start_address() failed
+sirius: init syscall 294 return 12
+sirius: init syscall 20 enter
+sirius: init syscall 20 return 0
+sirius: init syscall 427 enter
+sirius: init syscall 427 return 0
+sirius: init syscall 381 enter
+sirius: init syscall 381 return 0
+sirius: init syscall 5 enter
+sirius: init syscall 5 return 0
+shared_region: 0x9e33cf563e35f0f3 [1(launchd)] check_np(0x16f570150) vm_shared_region_start_address() failed
+sirius: init syscall 463 enter
+sirius: init syscall 463 return 0
+sirius: init syscall 339 enter
+sirius: init syscall 339 return 0
+sirius: init syscall 153 enter
+sirius: init syscall 153 return 0
+sirius: init syscall 92 enter
+sirius: init syscall 92 return 0
+sirius: init syscall 197 enter
+sirius: init syscall 197 return 0
+sirius: init syscall 73 enter
+sirius: init syscall 73 return 0
+NEMMC probe init syscalls 22
+NEMMC probe init syscalls 24
+NEMMC PANIC TEXT BEGIN
+mount[3] exited EL0 breakpoint record unavailable -- no exit reason available -- (signal 0, exit status 66 )
+NEMMC PANIC TEXT END
+## heartbeat every 2 s: beat, read requests, blocks
+1 2097 111951
+2 4055 233695
+3 6011 355623
+10 19582 1200183
+20 39101 2414127
+30 58621 3628511
+40 77760 4817671
+50 93785 5803255
+53 99724 5898655
+## blocks stop growing after beat 53: 5898655 blocks (2.81 GiB) in about 104 s, 27.2 MiB/s average, 30.1 MiB/s peak

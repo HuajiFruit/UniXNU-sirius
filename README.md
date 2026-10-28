@@ -41,17 +41,16 @@ selected from the U-Boot boot menu.
 | Platform expert | working: MMU on, 19.2 MHz timer, PSCI reset proven by the reset loop |
 | Console | working: boot-progress panel with the live kernel log, and a CDC-ACM USB console whose ring also carries the kernel's own `printf` output and any panic message |
 | IOKit | working: `sheng-smp=1` makes the native ArmCpu claim every `/cpus` nub and the board publishes the `ApplePMGRNub` AMFI looks for, so the prelinked kexts start |
-| Storage (eMMC) | working: SDCC1 at 400 kHz, SHNGROOT windows of `[userdata]` published as block devices, whole-disk media of 0x747BFDF sectors; IOStorageFamily parses the GPT through the driver |
+| Storage (eMMC) | working: SDCC1 at 50 MHz, 8-bit high-speed SDR, multi-block ADMA2 reads (about 30 MiB/s); SHNGROOT windows of `[userdata]` published as block devices, whole-disk media of 0x747BFDF sectors; IOStorageFamily parses the GPT through the driver |
 | Root filesystem | working: APFS mounts the OS volume (`disk2s1`), `bsd_init` completes and the sealed-root answer is recorded instead of panicking |
-| init / launchd | working: `execve` of `/sbin/launchd` completes (`execve activate 0`); the exec policy answer is recorded with `sirius-skip-cs=1` until the trust cache is supplied |
-| Userland | **next**: after the successful exec the kernel stops asking the driver for blocks, so the remaining wait is past storage; the eMMC clock also needs to leave 400 kHz |
+| init / launchd | working: launchd runs (PAN handled, `CONFIG_XNU_NATIVE_PAN=y`); the SystemOS cryptex is mounted as a union over `/`, and dyld maps the shared cache once the 4 KiB signature hash cache has verified it |
+| Userland | **next**: launchd's `mount` boot task (pid 3) exits 66 and the boot panics, because there is no Data volume yet |
 
-Where it stops now: `execve` returns 0 for launchd, the driver then sees no further
-requests, and nothing else is printed. The eMMC clock is still the identification
-rate (about 550 blocks/s), which is a speed problem rather than the cause of that
-wait. The proper fix for the exec policy is the original trust-cache bundle
-(`build-original-system-trust.py` + `build payload --trust-cache`), which also
-retires `sirius-skip-cs=1`.
+Where it stops now: launchd starts its boot tasks, and `mount` fails for want of the
+writable Data volume (`/private/var`). That needs a Data seed in the payload and the
+owner Data mount, as the asteroids port has it. The exec policy is answered by the
+original trust-cache bundle (`build-original-system-trust.py` + `build payload
+--trust-cache`).
 
 The full history, the solved problems and the road map are in `docs/HANDOFF.zh-CN.md`; the
 machine-checked version of the same facts is `porting.toml`.
