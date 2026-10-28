@@ -1,0 +1,83 @@
+name: Data seed
+
+# The Data volume's seed for the payload (unixnu build payload --data-ramdisk), built on a hosted macOS runner because
+# every step needs hdiutil/diskutil: UniXNU's prepare-owner-data-fixture.py makes a 32 MiB APFS volume holding the IPSW
+# OS volume's private/var. The raw image is the seed: NativeEmmc serves it from RAM as the Data volume (no packing, no
+# persistence, as the eMMC driver has no write path). The new volume's UUID is printed:
+# CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/sirius_defconfig must match it.
+# The seed holds files from the IPSW, so it is uploaded encrypted with the ARTIFACT_PASSPHRASE secret:
+#   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in data-seed.tar.gz.enc -pass file:KEYFILE | tar xz
+
+on:
+  workflow_dispatch:
+    inputs:
+      unixnu_ref:
+        description: UniXNU ref (seed scripts)
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Check out UniXNU
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: ${{ inputs.unixnu_ref }}
+          path: unixnu
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: The IPSW's OS volume, mounted read-only
+        working-directory: unixnu
+        run: |
+          url=$(python3 -c "import tomllib; print(tomllib.load(open('profiles/os/ipados-17.7.11-21H461/profile.toml', 'rb'))['ipsw']['url'])")
+          mkdir -p refer
+          curl -fsSL --retry 3 -o refer/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw "$url"
+          python3 scripts/extract-target-volume.py OS
+          rm refer/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw
+          dmg=$(ls .cache/firmware/target-volumes/*.dmg)
+          mkdir -p .cache/firmware/target-volumes/os-mount
+          hdiutil attach -readonly -nobrowse -owners off -mountpoint .cache/firmware/target-volumes/os-mount "$dmg"
+
+      - name: Seed
+        working-directory: unixnu
+        run: |
+          mkdir -p out-seed
+          python3 scripts/prepare-owner-data-fixture.py
+          hdiutil detach .cache/firmware/target-volumes/os-mount
+          cp build/owner-data-fixture/owner-data-32.cdr build/owner-data-fixture/seed.json out-seed/
+          uuid=$(python3 -c "import json; print(json.load(open('out-seed/seed.json'))['volume_uuid'])")
+          {
+            echo "unixnu $(git rev-parse HEAD)"
+            echo "volume_uuid $uuid"
+            shasum -a 256 out-seed/owner-data-32.cdr
+          } | tee out-seed/inputs.txt
+          ls -la out-seed
+          echo "::notice title=Data volume UUID::CONFIG_XNU_OWNER_DATA_VOLUME_UUID=\"$uuid\""
+
+      - name: Encrypt
+        env:
+          ARTIFACT_PASSPHRASE: ${{ secrets.ARTIFACT_PASSPHRASE }}
+        run: |
+          [ -n "$ARTIFACT_PASSPHRASE" ] || { echo "::error::No ARTIFACT_PASSPHRASE secret: nothing is uploaded."; exit 1; }
+          mkdir -p "$RUNNER_TEMP/encrypted"
+          tar -C unixnu/out-seed -czf - . \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:ARTIFACT_PASSPHRASE \
+              -out "$RUNNER_TEMP/encrypted/data-seed.tar.gz.enc"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: sirius-data-seed-encrypted
+          path: ${{ runner.temp }}/encrypted/data-seed.tar.gz.enc
+          if-no-files-found: error
+          retention-days: 7
