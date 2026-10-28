@@ -2,9 +2,10 @@ name: Data seed
 
 # The Data volume's seed for the payload (unixnu build payload --data-ramdisk), built on a hosted macOS runner because
 # every step needs hdiutil/diskutil: UniXNU's prepare-owner-data-fixture.py makes a 32 MiB APFS volume holding the IPSW
-# OS volume's private/var. The raw image is the seed: NativeEmmc serves it from RAM as the Data volume (no packing, no
-# persistence, as the eMMC driver has no write path). The new volume's UUID is printed:
-# CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/sirius_defconfig must match it.
+# OS volume's private/var, and the container is then grown to size_mib (32 MiB ran out of space as soon as userland
+# started). The raw image is the seed: NativeEmmc serves it from RAM as the Data volume, so it takes that much of the
+# kernel's memory window (no packing, no persistence, as the eMMC driver has no write path). The new volume's UUID is
+# printed: CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/sirius_defconfig must match it.
 # The seed holds files from the IPSW, so it is uploaded encrypted with the ARTIFACT_PASSPHRASE secret:
 #   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in data-seed.tar.gz.enc -pass file:KEYFILE | tar xz
 
@@ -15,6 +16,10 @@ on:
         description: UniXNU ref (seed scripts)
         required: true
         default: main
+      size_mib:
+        description: Data container size in MiB (held in RAM, inside the 1 GiB kernel window)
+        required: true
+        default: "256"
 
 permissions:
   contents: read
@@ -50,16 +55,42 @@ jobs:
 
       - name: Seed
         working-directory: unixnu
+        env:
+          SIZE_MIB: ${{ inputs.size_mib }}
         run: |
           mkdir -p out-seed
           python3 scripts/prepare-owner-data-fixture.py
           hdiutil detach .cache/firmware/target-volumes/os-mount
-          cp build/owner-data-fixture/owner-data-32.cdr build/owner-data-fixture/seed.json out-seed/
+          cp build/owner-data-fixture/owner-data-32.cdr out-seed/owner-data.cdr
+          cp build/owner-data-fixture/seed.json out-seed/
+          # Grow the container the way UniXNU's seed-data-grow.py does: extend the raw image, attach it without
+          # mounting, resize the APFS container to fill it. The volume and its UUID stay.
+          python3 -c "import sys; open('out-seed/owner-data.cdr', 'r+b').truncate(int(sys.argv[1]) << 20)" "$SIZE_MIB"
+          store=$(hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount -nobrowse out-seed/owner-data.cdr \
+            | grep -o '/dev/disk[0-9]*' | head -1 | sed 's#/dev/##')
+          container=$(python3 - "$store" <<'PY'
+          import plistlib, subprocess, sys
+          listing = plistlib.loads(subprocess.check_output(['diskutil', 'apfs', 'list', '-plist']))
+          print(next(c['ContainerReference'] for c in listing['Containers']
+                     if any(s['DeviceIdentifier'] == sys.argv[1] for s in c.get('PhysicalStores', []))))
+          PY
+          )
+          diskutil apfs resizeContainer "$container" 0
+          hdiutil detach "$store" -force
+          python3 - "$SIZE_MIB" <<'PY'
+          import sys
+          header = open('out-seed/owner-data.cdr', 'rb').read(4096)
+          blocks = int.from_bytes(header[40:48], 'little')
+          if header[32:36] != b'NXSB' or blocks * 4096 < (int(sys.argv[1]) - 64) * 2**20:
+              sys.exit(f'grown container holds {blocks * 4096} bytes')
+          print('container bytes', blocks * 4096)
+          PY
           uuid=$(python3 -c "import json; print(json.load(open('out-seed/seed.json'))['volume_uuid'])")
           {
             echo "unixnu $(git rev-parse HEAD)"
+            echo "size_mib $SIZE_MIB"
             echo "volume_uuid $uuid"
-            shasum -a 256 out-seed/owner-data-32.cdr
+            shasum -a 256 out-seed/owner-data.cdr
           } | tee out-seed/inputs.txt
           ls -la out-seed
           echo "::notice title=Data volume UUID::CONFIG_XNU_OWNER_DATA_VOLUME_UUID=\"$uuid\""

@@ -1,0 +1,103 @@
+# USB console timeline (seconds after fastboot reboot, first arrival of each line), kernel 33509e8, payload with /chosen/boot-manifest-hash
+# kernel.macho 2e6e1ddc51b1f8b2d58c607477f81b0327d95f301382d8d4c1180096b402408a
+# payload    aa917c707d2f0a8f46ae44e635b838e7e3892822c115c0233bdb5bd3e2bae323
+    51.8 NEMMC data seed at 00000000a3cc1000
+    51.8 NEMMC data seed bytes 33554432
+    52.0 NEMMC data volume /dev/disk3s1
+   157.7 DT_get_fstab_entries:12205: failed to get filesystem entry at: /filesystems/fstab
+   157.7 ERROR: BindFS bindfs_mount: lookup of /private/preboot/5FD2FC139B688DDF071AA815C1EA75D26BCD994A528CF02E365661EAB5139EC7B580D63CA9319E218962A2236F23FACA/usr/standalone/firmware failed error: 2
+   158.2 ERROR: BindFS bindfs_mount: lookup of /private/var/hardware/FactoryData/System/Library/Caches/com.apple.factorydata failed error: 2
+   159.4 [System Event] [3057003685] [INFO] [Subsystem: launchd] [Event: exclaves-boot] Doing boot task
+   159.4 [System Event] [3057013296] [INFO] [Subsystem: launchd] [Event: fsck] Doing boot task
+   159.4 [System Event] [3057022844] [INFO] [Subsystem: launchd] [Event: mount-phase-1] Doing boot task
+   159.4 [System Event] [3057032102] [INFO] [Subsystem: launchd] [Event: data-protection] Doing boot task
+   159.4 [System Event] [3057041029] [INFO] [Subsystem: launchd] [Event: finish-obliteration] Doing boot task
+   159.4 [System Event] [3057049813] [INFO] [Subsystem: launchd] [Event: detect-installed-roots] Doing boot task
+   159.4 [System Event] [3057075740] [INFO] [Subsystem: launchd] [Event: commit-boot-mode] Doing boot task
+   159.4 [System Event] [3057092865] [INFO] [Subsystem: launchd] [Event: restore-datapartition] Doing boot task
+   159.4 [System Event] [3057101935] [INFO] [Subsystem: launchd] [Event: restore-datapartition] optional boot task not present
+   159.4 [System Event] [3057110820] [INFO] [Subsystem: launchd] [Event: mount-phase-2] Doing boot task
+   159.4 [System Event] [3057119666] [INFO] [Subsystem: launchd] [Event: init-with-data-volume] Doing boot task
+   159.4 [System Event] [3057129168] [INFO] [Subsystem: launchd] [Event: fixup-mobile-tmp] Doing boot task
+   159.4 [System Event] [3057139110] [INFO] [Subsystem: launchd] [Event: fixup-mobile-tmp] /private/var/mobile/tmp already exists, skipping
+   159.4 [System Event] [3057148172] [INFO] [Subsystem: launchd] [Event: fixup-mobile-tmp] Finished boot task
+   159.4 [System Event] [3057157102] [INFO] [Subsystem: launchd] [Event: MSUEarlyBootTask] Doing boot task
+   159.4 [System Event] [3057166001] [INFO] [Subsystem: launchd] [Event: fips] Doing boot task
+   159.4 [System Event] [3057174900] [INFO] [Subsystem: launchd] [Event: keybag] Doing boot task
+   159.4 [System Event] [3057183918] [INFO] [Subsystem: launchd] [Event: usermanagerd] Doing boot task
+   159.4 [System Event] [3057192829] [INFO] [Subsystem: launchd] [Event: dirs_cleaner] Doing boot task
+   159.4 [System Event] [3057212889] [INFO] [Subsystem: launchd] [Event: xpcroleaccountd] Doing boot task
+   159.4 [System Event] [3057631972] [INFO] [Subsystem: launchd] [Event: init_featureflags] Doing boot task
+   160.5 [System Event] [3078162471] [INFO] [Subsystem: launchd] [Event: auearlyboot] Doing boot task
+   160.6 [System Event] [3080305642] [INFO] [Subsystem: launchd] [Event: tzinit] Doing boot task
+   160.8 [System Event] [3084244012] [INFO] [Subsystem: launchd] [Event: finish-restore] Doing boot task
+   160.8 [System Event] [3084259345] [INFO] [Subsystem: launchd] [Event: finish-demo-restore] Doing boot task
+   160.8 [System Event] [3084266249] [INFO] [Subsystem: launchd] [Event: sysstatuscheck] Doing boot task
+   160.8 [System Event] [3084271572] [INFO] [Subsystem: launchd] [Event: prng_seedctl] Doing boot task
+   160.8 [System Event] [3084276416] [INFO] [Subsystem: launchd] [Event: launchd_cache_loader] Doing boot task
+   161.1 [System Event] [3090210928] [INFO] [Subsystem: launchd] [Event: workload-properties-init] Doing boot task
+   161.1 [System Event] [3090221621] [INFO] [Subsystem: launchd] [Event: init-exclavekit] Doing boot task
+   161.5 [System Event] [3096911889] [INFO] [Subsystem: launchd] [Event: boot] Early boot complete. Continuing system boot.
+   175.7 fs_tx_enter_internal:27549: disk3s1 logd_helper: ENOSPC: ttype MODVAL num_blocks 282 free_blocks 409 blocks_in_txn 129 num_records 6 num_data_blocks 254 num_active_txns 1 (reserved ranges total blocks: 7395) current xid: 5 threshold_blocks 0
+   175.7 prepare_write_and_lock:12219: disk3s1 Cannot reserve 1047611 bytes at offset 30093312 of inode 263 (590D839A82D230F1A17D0CC053420F73.xeJG7UdZ) ret 28 xid 5 (lowdisk: 0x0) offset 30082775 writelimit 30096443
+   175.7 apfs_lowdisk_check_volume:285: disk3s1 sending lowdisk notification: 8196 for with apfs_lowdisk_status: 8196
+   175.7 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 178 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 48) current xid: 8 threshold_blocks 0
+   175.7 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 3010 free_blocks 178 blocks_in_txn 13 num_records 1000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 48) current xid: 9 threshold_blocks 0
+   175.7 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 1510 free_blocks 175 blocks_in_txn 0 num_records 500 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 48) current xid: 10 threshold_blocks 0
+   175.7 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 760 free_blocks 177 blocks_in_txn 0 num_records 250 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 48) current xid: 13 threshold_blocks 0
+   175.7 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 382 free_blocks 177 blocks_in_txn 0 num_records 124 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 48) current xid: 14 threshold_blocks 0
+   175.7 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 196 free_blocks 177 blocks_in_txn 0 num_records 62 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 48) current xid: 15 threshold_blocks 0
+   175.7 apfs_lowdisk_check_volume:285: disk3s1 sending lowdisk notification: 16640 for with apfs_lowdisk_status: 0
+   178.7 KextLog: driverkitd is not active
+   179.0 KextLog: driverkitd is active
+   179.5 apfs_announce_hash_mismatch:146: disk6s1 Data hash mismatch for 16384 bytes at offset 35176448 in data stream 82 of inode 82: expected 7d1233424f5557ffbed947b263e65c7156765eec7797388b7e200dcf69b4367d, got 85f6f85f373e230d90568019d889fa6cb2b26a00bdb9e09fd3b1093872384b07
+   183.1 Process[112] crashed: liveactivitiesd. Too many corpses being created.
+   184.1 apfs_announce_hash_mismatch:146: disk6s1 Data hash mismatch for 16384 bytes at offset 18890752 in data stream 70 of inode 70: expected 3b839344e0cf3b830223d2f8535aacfddc4447cfc1ec68a92b03847acdb9cb80, got 3a8b156506ffad77c353f7fe69929c15cb81888390a6264b6648e3371a9fb1c8
+   185.9 Process[27] crashed: SpringBoard. Too many corpses being created.
+   186.2 apfs_announce_hash_mismatch:146: disk6s1 Data hash mismatch for 16384 bytes at offset 37666816 in data stream 52 of inode 52: expected 424923e59cf536cf31f047787447407ccd6476a0541d37dff73972650585c627, got 1d66ea497269454c4a54413d79cb326f53405f1936c81853225f32896175e6a0
+   186.2 Process[106] crashed: mobileassetd. Too many corpses being created.
+   186.3 Process[125] crashed: SpringBoard. Too many corpses being created.
+   187.2 fs_tx_enter_internal:27549: disk3s1 nsurlsessiond: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5655 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1063) current xid: 36 threshold_blocks 0
+   187.3 fs_tx_enter_internal:27549: disk3s1 nsurlsessiond: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5638 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1078) current xid: 36 threshold_blocks 0
+   187.7 fs_tx_enter_internal:27549: disk3s1 identityservicesd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5475 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1220) current xid: 37 threshold_blocks 0
+   187.9 fs_tx_enter_internal:27549: disk3s1 identityservicesd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5453 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1220) current xid: 37 threshold_blocks 0
+   187.9 fs_tx_enter_internal:27549: disk3s1 identityservicesd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5451 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1220) current xid: 37 threshold_blocks 0
+   188.1 fs_tx_enter_internal:27549: disk3s1 securityd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5438 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1228) current xid: 37 threshold_blocks 0
+   188.5 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5355 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1510) current xid: 62 threshold_blocks 0
+   188.5 fs_tx_enter_internal:27549: disk3s1 tccd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5354 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1510) current xid: 62 threshold_blocks 0
+   188.5 fs_tx_enter_internal:27549: disk3s1 tccd: ENOSPC: ttype DELETE num_blocks 3010 free_blocks 5354 blocks_in_txn 3032 num_records 1000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1510) current xid: 62 threshold_blocks 0
+   188.6 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5334 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1532) current xid: 66 threshold_blocks 0
+   188.6 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5334 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1532) current xid: 69 threshold_blocks 0
+   188.6 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5334 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1532) current xid: 72 threshold_blocks 0
+   188.6 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5334 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1532) current xid: 75 threshold_blocks 0
+   188.6 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5334 blocks_in_txn 13 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1532) current xid: 78 threshold_blocks 0
+   188.6 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5337 blocks_in_txn 140 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1532) current xid: 81 threshold_blocks 0
+   188.7 fs_tx_enter_internal:27549: disk3s1 biomed: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5337 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1532) current xid: 84 threshold_blocks 0
+   189.0 fs_tx_enter_internal:27549: disk3s1 containermanagerd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5821 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 767) current xid: 90 threshold_blocks 0
+   189.0 fs_tx_enter_internal:27549: disk3s1 IMDPersistenceAgent: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5820 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 767) current xid: 90 threshold_blocks 0
+   189.1 fs_tx_enter_internal:27549: disk3s1 locationd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5359 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1237) current xid: 104 threshold_blocks 0
+   189.2 fs_tx_enter_internal:27549: disk3s1 locationd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5356 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1238) current xid: 107 threshold_blocks 0
+   189.5 fs_tx_enter_internal:27549: disk3s1 coreduetd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4803 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1750) current xid: 108 threshold_blocks 0
+   189.6 fs_tx_enter_internal:27549: disk3s1 calaccessd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4769 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 750) current xid: 109 threshold_blocks 0
+   189.6 fs_tx_enter_internal:27549: disk3s1 calaccessd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5423 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 759) current xid: 113 threshold_blocks 0
+   189.6 fs_tx_enter_internal:27549: disk3s1 calaccessd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5421 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 759) current xid: 113 threshold_blocks 0
+   189.7 fs_tx_enter_internal:27549: disk3s1 coreduetd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5233 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 886) current xid: 113 threshold_blocks 0
+   189.7 fs_tx_enter_internal:27549: disk3s1 coreduetd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 5151 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 966) current xid: 113 threshold_blocks 0
+   189.8 fs_tx_enter_internal:27549: disk3s1 coreduetd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4856 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1245) current xid: 113 threshold_blocks 0
+   189.8 fs_tx_enter_internal:27549: disk3s1 coreduetd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4854 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1245) current xid: 113 threshold_blocks 0
+   189.8 fs_tx_enter_internal:27549: disk3s1 coreduetd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4851 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1245) current xid: 113 threshold_blocks 0
+   189.9 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4937 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1238) current xid: 116 threshold_blocks 0
+   189.9 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4942 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1238) current xid: 119 threshold_blocks 0
+   189.9 fs_tx_enter_internal:27549: disk3s1 kernel_task: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4942 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1238) current xid: 125 threshold_blocks 0
+   189.9 fs_tx_enter_internal:27549: disk3s1 containermanagerd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4898 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1272) current xid: 126 threshold_blocks 0
+   190.0 fs_tx_enter_internal:27549: disk3s1 locationd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4921 blocks_in_txn 140 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1266) current xid: 131 threshold_blocks 0
+   190.0 fs_tx_enter_internal:27549: disk3s1 locationd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4922 blocks_in_txn 13 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1266) current xid: 134 threshold_blocks 0
+   190.0 fs_tx_enter_internal:27549: disk3s1 locationd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4663 blocks_in_txn 0 num_records 2000 num_data_blocks 0 num_active_txns 0 (reserved ranges total blocks: 1522) current xid: 137 threshold_blocks 0
+   190.0 fs_tx_enter_internal:27549: disk3s1 transparencyd: ENOSPC: ttype DELETE num_blocks 6010 free_blocks 4604 blocks_in_txn 22 num_records 2000 num_data_blocks 0 num_active_txns 1 (reserved ranges total blocks: 1538) current xid: 138 threshold_blocks 0
+   191.2 coredump (watchdogd, pid 127): writing core to /private/var/cores/watchdogd.core
+   191.2 coredump (watchdogd, pid 127): failed to open core dump file /private/var/cores/watchdogd.core: error 2
+   191.2 coredump (watchdogd, pid 127): core dump failed: error 2
+   191.6 Process[148] crashed: SpringBoard. Too many corpses being created.
+   191.9 NEMMC PANIC TEXT BEGIN
+   191.9  watchdogd[127] exited EL0 watchdogd PC=100b3bb0c LR=100b3bb0c SP=16f2cea70 FP=16f2cea70 ESR=f2000001 cache+=1caf8000 INSN=d4200020 err=0 x0=0 x1=0 x2=0 x3=0 x19=0 x20=100b3990c x21=100f5fca8 x22=100f5f910 x23=16f2ceb70 frames=3 16f2ceab0/100b37830 16f2ce
+   191.9 NEMMC PANIC TEXT END

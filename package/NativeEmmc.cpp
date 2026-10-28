@@ -429,11 +429,20 @@ nemmc_drain_queue(void)
 				run = sirius_emmc_run_blocks;
 			}
 			UInt64 lba = request->base + request->block + done;
+			/* The bounce buffer is shared by every request, and requests are drained on their
+			 * callers' threads, so it stays under the transport lock until the copy into the
+			 * request's memory is done. Released between the read and the copy, a second reader
+			 * refilled it first and the first request received the other one's blocks: APFS
+			 * reported data hash mismatches on the sealed SystemOS volume once userland read in
+			 * parallel. The request's memory is prepared (wired) for the I/O, so the copy does not
+			 * fault back into this driver. */
 			nemmc_transport_lock_acquire();
 			nemmc_inflight_lba = lba;
 			nemmc_inflight_count = (uint32_t)request->count;
 			nemmc_inflight_beat = nemmc_heartbeats;
 			int read = sirius_emmc_read_blocks(lba, (unsigned)run, nemmc_bounce);
+			UInt64 copied = read == 0 ? request->buffer->writeBytes(done * EMMC_BLOCK_SIZE, nemmc_bounce,
+			    run * EMMC_BLOCK_SIZE) : 0;
 			nemmc_transport_lock_release();
 			nemmc_blocks += (uint32_t)run;
 			if (read != 0) {
@@ -441,8 +450,7 @@ nemmc_drain_queue(void)
 				result = kIOReturnIOError;
 				break;
 			}
-			if (request->buffer->writeBytes(done * EMMC_BLOCK_SIZE, nemmc_bounce,
-			    run * EMMC_BLOCK_SIZE) != run * EMMC_BLOCK_SIZE) {
+			if (copied != run * EMMC_BLOCK_SIZE) {
 				result = kIOReturnIOError;
 				break;
 			}

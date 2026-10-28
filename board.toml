@@ -115,6 +115,10 @@ kernel_args = [
   "launchdsuffix=release",          # DEVELOPMENT: load /sbin/launchd directly and report its errno
   "amfi_get_out_of_my_way=1",       # bring-up: let init exec from an unverified root
   "sirius-allow-unverified=1",      # bring-up: NativeEmmc authorizes the SystemOS union mount (no owner policy)
+  "sheng-disable-watchdogd=1",      # package/BootWatchdogPolicy.c disables com.apple.watchdogd before launchd: it traps
+                                    # (brk #1) without a watchdog backend and its exit panics the boot
+  "sheng-lite=1",                   # the same policy also disables the network/iCloud/photo daemons this phone has no use
+                                    # for, which compete with SpringBoard for memory and fill the small Data volume
   "sirius-skip-rootauth=1",         # the sealed-root answer needs the owner-root chain; see
                                     # patches/xnu/sirius-skip-rootauth.patch
   # "sirius_usb_power=1",           # opt-in: power the USB GDSC and report the readback (proven safe).
