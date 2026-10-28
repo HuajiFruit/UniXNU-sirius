@@ -19,6 +19,9 @@
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <kern/thread.h>
 #include <kern/task.h>
+#include <kern/host.h>
+#include <mach/host_info.h>
+extern "C" kern_return_t host_statistics64(host_t host, host_flavor_t flavor, host_info_t info, mach_msg_type_number_t *count);
 #include <kern/sched_prim.h>
 #include <libkern/libkern.h>
 #include <sys/param.h>
@@ -278,6 +281,32 @@ extern "C" unsigned long gPhysBase, gPhysSize;
 extern "C" int sirius_cpufreq_report(unsigned domain, uint32_t state[6], uint32_t *vote_mhz) __attribute__((weak_import));
 extern "C" void sirius_cpufreq_retry(void) __attribute__((weak_import));
 
+/* Where the time goes once storage is idle: user/system/idle share of all cores since the previous sample (the panel's LOAD
+ * row, which shows only while it repaints). */
+static void
+nemmc_log_load(void)
+{
+	static uint32_t previous[CPU_STATE_MAX];
+	host_cpu_load_info_data_t load;
+	mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
+	uint64_t delta[CPU_STATE_MAX], sum = 0;
+
+	if (host_statistics64(&realhost, HOST_CPU_LOAD_INFO, (host_info_t)&load, &count) != KERN_SUCCESS) {
+		return;
+	}
+	for (unsigned i = 0; i < CPU_STATE_MAX; i++) {
+		delta[i] = load.cpu_ticks[i] - previous[i];
+		previous[i] = load.cpu_ticks[i];
+		sum += delta[i];
+	}
+	if (sum == 0) {
+		return;
+	}
+	emmc_log_dec("NEMMC load user % ", (delta[CPU_STATE_USER] + delta[CPU_STATE_NICE]) * 100 / sum);
+	emmc_log_dec("NEMMC load sys % ", delta[CPU_STATE_SYSTEM] * 100 / sum);
+	emmc_log_dec("NEMMC load idle % ", delta[CPU_STATE_IDLE] * 100 / sum);
+}
+
 static void
 nemmc_log_memory(void)
 {
@@ -356,6 +385,7 @@ nemmc_heartbeat_thread(void *, wait_result_t)
 		if ((nemmc_heartbeats % 16) == 0) {
 			nemmc_log_cpu_clock();
 			nemmc_log_memory();
+			nemmc_log_load();
 		}
 		{
 			static int reported;

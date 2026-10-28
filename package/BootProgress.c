@@ -1037,6 +1037,9 @@ extern volatile uint64_t armcpu_ipi_interrupts __attribute__((weak_import));
 static volatile uint64_t sleep_n,sleep_over_sum,sleep_over_max,sleep_late50;
 static uint64_t banner_sleep_n,banner_sleep_sum,banner_sleep_late,banner_tint,banner_ipi;
 static unsigned banner_second,banner_top;
+// The first framebuffer row of the live panel (its title), 0 before it is first drawn. The GopFramebuffer board fork copies the
+// compositor's frames only above it, so a presented frame no longer paints over the panel between its repaints.
+volatile unsigned boot_progress_panel_top;
 static uint64_t banner_copy_n,banner_signature,banner_ufs_v,banner_ufs_r,banner_ufs_n,banner_ufs_b;
 static uint32_t banner_load[4];
 static void crash_banner(unsigned now) {
@@ -1178,6 +1181,7 @@ static void crash_banner(unsigned now) {
       for(unsigned x=0;x<cols*6*display.scale;++x)*(volatile uint32_t *)(display.frame+(uintptr_t)y*display.stride+x*4)=0xff000000;
     }
   banner_top=title;
+  boot_progress_panel_top=title;
   char head[120];
   snprintf(head,sizeof head," UniXNU live diagnostics%s%s%s  t=%us  crashes=%u exits=%u",build_tag[0]?"  [":"",build_tag,
     build_tag[0]?"]":"",now,crashes,failed);

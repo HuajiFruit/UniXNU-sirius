@@ -52,6 +52,8 @@ extern "C" {volatile uint64_t sirius_fb_read[2];volatile uint32_t sirius_fb_sour
 extern "C" unsigned int pmap_cache_attributes(unsigned int pn);
 // Clean and invalidate a virtual range to the point of coherency (osfmk/arm/caches_internal.h).
 extern "C" void flush_dcache64(addr64_t addr, unsigned count, int phys);
+// The live diagnostics panel's first framebuffer row (package/BootProgress.c), 0 while it is not drawn.
+extern "C" volatile unsigned boot_progress_panel_top __attribute__((weak_import));
 extern "C" uint32_t native_ufs_dpu_map(unsigned slot,const uint64_t *pages,unsigned count) __attribute__((weak_import));
 extern "C" volatile uint32_t native_ufs_dpu_state __attribute__((weak_import));
 static void noteSurface(OSObject *surface,IOMemoryDescriptor *memory)
@@ -504,9 +506,12 @@ public:
         }
         if(stored==UINT64_MAX) {
             shadowValid=false;
+            // sirius board fork: stop above the live diagnostics panel (package/BootProgress.c), so frames do not paint over it.
+            uint32_t copyHeight=height;
+            if(&boot_progress_panel_top && boot_progress_panel_top && boot_progress_panel_top<height)copyHeight=boot_progress_panel_top;
             if(!native_legacy_copy_pixels(reinterpret_cast<volatile void *>(bootMapping->getVirtualAddress()),
                 bootMapping->getLength(),video.v_rowBytes,reinterpret_cast<const void *>(source->getVirtualAddress()),
-                source->getLength(),sourceStride,width,height)) {
+                source->getLength(),sourceStride,width,copyHeight)) {
                 OSSafeReleaseNULL(source);native_legacy_transfer_observed(kIOReturnBadArgument,request,0);return;
             }
             stored=length;
