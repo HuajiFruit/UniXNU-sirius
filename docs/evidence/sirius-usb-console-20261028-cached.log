@@ -1,0 +1,168 @@
+# USB console, two back-to-back 280 s windows without --match, kernel f222029 (commit 01d06b4), sirius-fb-cached=1 sirius-cpufreq=1
+# kernel.macho f2220294158f44391c013823569af2c57b3accf646e37bc27d0dfed3c48c0b34
+# payload    952ab409d753d5ac7404a87c22dc1b006214c842378521d6a3e378ac5f043027 (268435456 bytes)
+158.7 [System Event] [2966708992] [INFO] [Subsystem: launchd] [Event: boot] Early boot complete. Continuing system boot.
+206.0 request_power_change second_external 0 powerstate1 fdisplaytype 0
+206.9 IOMFB: default_fb_surface: No Default FB Surface found. Return error
+## First appearance of each NEMMC cpufreq / fb / memory row over both windows
+NEMMC fb copies 0
+NEMMC fb copy last us 0
+NEMMC fb copy mean us 0
+NEMMC fb copy max us 0
+NEMMC fb read last us 0
+NEMMC fb reads timed 0
+NEMMC fb cache source/scanout/wimg 0000000000000000
+NEMMC cpufreq domain 0
+NEMMC cpufreq enable/rows/before/request 0001000900060008
+NEMMC cpufreq row0 kHz 300000
+NEMMC cpufreq best kHz 1708800
+NEMMC cpufreq vote MHz 2995
+NEMMC cpufreq domain 1
+NEMMC cpufreq enable/rows/before/request 0000000d000000ff
+NEMMC cpufreq best kHz 2208000
+NEMMC window base 000000009f87c000
+NEMMC window size 0000000040000000
+NEMMC db-runs 80000000+5700000,97C00000+4400000,9F800000+AE9E7000
+NEMMC fb cache source/scanout/wimg 0000000040000000
+NEMMC cpufreq enable/rows/before/request 0001000d0000000c
+NEMMC fb copies 2
+NEMMC fb copy last us 5303
+NEMMC fb copy mean us 4948
+NEMMC fb copy max us 5303
+NEMMC fb read last us 18013
+NEMMC fb reads timed 2
+NEMMC fb cache source/scanout/wimg 0003000040000002
+NEMMC fb copies 211
+NEMMC fb copy last us 12388
+NEMMC fb copy mean us 9341
+NEMMC fb copy max us 12388
+NEMMC fb read last us 17949
+NEMMC fb reads timed 32
+NEMMC fb copies 481
+NEMMC fb copy last us 12916
+NEMMC fb copy mean us 10235
+NEMMC fb copy max us 13860
+NEMMC fb copies 742
+NEMMC fb copy last us 9174
+NEMMC fb copy mean us 10525
+NEMMC fb copy max us 17611
+NEMMC fb copies 999
+NEMMC fb copy last us 12183
+NEMMC fb copy mean us 10654
+NEMMC fb cache source/scanout/wimg 0003EMMC launchd thread fffffff6b0b90df0
+NEMMC fb copies 1257
+NEMMC fb copy last us 9217
+NEMMC fb copy mean us 10788
+NEMMC fb copies 1516
+NEMMC fb copy last us 9735
+NEMMC fb copy mean us 10854
+NEMMC fb copies 1775
+NEMMC fb copy last us 12582
+NEMMC fb copy mean us 10931
+NEMMC fb copy max us 18984
+NEMMC fb copies 2032
+NEMMC fb copy last us 9190
+NEMMC fb copy mean us 11057
+NEMMC fb copies 2289
+NEMMC fb copy last us 10526
+NEMMC fb copy mean us 11140
+NEMMC fb copies 2546
+NEMMC fb copy last us 8981
+NEMMC fb copy mean us 11182
+NEMMC fb copies 2793
+NEMMC fb copy last us 8677
+NEMMC fb copy mean us 11206
+NEMMC fb copies 3041
+NEMMC fb copy last us 15546
+NEMMC fb copy mean us 11245
+NEMMC fb copies 3305
+NEMMC fb copy last us 9376
+NEMMC fb copy mean us 11226
+NEMMC fb copies 3562
+NEMMC fb copy last us 8944
+NEMMC fb copy mean us 11271
+NEMMC fb copies 3801
+NEMMC fb copy last us 15947
+NEMMC fb copy mean us 11413
+NEMMC fb copy max us 19014
+NEMMC fb copies 4040
+NEMMC fb copy last us 13197
+NEMMC fb copy mean us 11590
+NEMMC fb copies 4262
+NEMMC fb copy last us 18022
+NEMMC fb copy mean us 11785
+NEMMC fb copy max us 20022
+NEMMC fb copies 4493
+NEMMC fb copy last us 12189
+NEMMC fb copy mean us 11955
+NEMMC fb copies 4722
+NEMMC fb copy last us 11966
+NEMMC fb copy mean us 12106
+NEMMC fb copies 4948
+NEMMC fb copy last us 17345
+NEMMC fb copy mean us 12251
+NEMMC fb copies 5173
+NEMMC fb copy last us 17616
+NEMMC fb copy mean us 12388
+NEMMC fb copies 5404
+NEMMC fb copy last us 12039
+NEMMC fb copy mean us 12508
+NEMMC fb copy max us 20120
+NEMMC fb copies 5626
+NEMMC fb copy last us 14207
+NEMMC fb copy mean us 12627
+NEMMC fb copy mean us 12733
+NEMMC fb copies 6073
+NEMMC fb copy last us 16350
+NEMMC fb copy mean us 12833
+NEMMC fb copies 6302
+NEMMC fb copy last us 17985
+NEMMC fb copy mean us 12917
+NEMMC fb copies 6535
+NEMMC fb copy last us 17945
+NEMMC fb copy mean us 12996
+NEMMC fb copies 6767
+NEMMC fb copy last us 17465
+NEMMC fb copy mean us 13070
+NEMMC fb copies 6990
+NEMMC fb copy last us 12181
+NEMMC fb copy mean us 13144
+NEMMC fb copies 7217
+NEMMC fb copy last us 17070
+NEMMC fb copy mean us 13212
+NEMMC fb copies 7446
+NEMMC fb copy last us 16395
+NEMMC fb copy mean us 13274
+NEMMC fb copies 7674
+NEMMC fb copy last us 11626
+NEMMC fb copy mean us 13334
+NEMMC fb copies 7907
+NEMMC fb copy last us 12262
+NEMMC fb copy mean us 13384
+NEMMC fb copies 8141
+NEMMC fb copy last us 17920
+NEMMC fb copy mean us 13434
+NEMMC fb copies 8366
+NEMMC fb copy last us 17774
+NEMMC fb copy mean us 13485
+NEMMC fb copies 8591
+NEMMC fb copy last us 18127
+NEMMC fb copy mean us 13536
+NEMMC fb copies 8822
+NEMMC fb copy last us 12139
+NEMMC fb copy mean us 13577
+NEMMC fb copies 9044
+NEMMC fb copy last us 16321
+NEMMC fb copy mean us 13627
+NEMMC fb copies 9276
+NEMMC fb copy mean us 13658
+## Core clocks measured with PMCCNTR (count over both windows, re-mirrored lines included)
+    469 NEMMC cpu mpidr 0000000000000000	NEMMC cpu MHz 1708
+    186 NEMMC cpu mpidr 0000000000000100	NEMMC cpu MHz 1708
+    320 NEMMC cpu mpidr 0000000000000200	NEMMC cpu MHz 1708
+     19 NEMMC cpu mpidr 0000000000000300	NEMMC cpu MHz 1708
+    909 NEMMC cpu mpidr 0000000000000400	NEMMC cpu MHz 1708
+    292 NEMMC cpu mpidr 0000000000000500	NEMMC cpu MHz 1708
+## Highest heartbeat per window (the boot runs through both)
+NEMMC alive beats/reads 00000070
+NEMMC alive beats/reads 000000e9

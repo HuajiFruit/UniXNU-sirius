@@ -2,6 +2,7 @@
 # build; the repository tracks sources, configuration and the porting record only.
 /local.toml
 out/
+tmp/
 build/
 .cache/
 refer/

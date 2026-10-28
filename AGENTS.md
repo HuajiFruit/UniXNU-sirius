@@ -166,6 +166,9 @@ volume), `vendor` = `~/Xnu4Sirius/flash/payload-N-display.img` (kernel `8f831f8`
   from PowerShell (or copy the image to a Windows folder first).
 - `gh run watch` drops on network errors; poll `gh run view <id> --json status,conclusion` instead.
 - Kernel artifacts expire after 3 days, seed artifacts after 7.
+- Downloaded kernels and payload images for flashing go to `tmp/` in this checkout (ignored), not the
+  Desktop: `gh run download <id> -D tmp/kernel-<name>`, and copy each payload from WSL to
+  `tmp/payload-<name>.img` before `fastboot flash vendor tmp\payload-<name>.img`.
 - Captures go to `out/` (ignored). The heartbeat re-mirrors the whole kernel log buffer, so a raw
   280 s capture runs to tens of MB; read the `--timeline` file first and commit only an excerpt.
 
