@@ -56,6 +56,8 @@ archives = [
   "component:ArmDTPlatform",
   "component:ArmCpu",
   "build-libpthread-kernel.py",
+  "component:AppleKeyStoreState",     # -Werror build and object audit of the keystore service; the late
+                                     # display archive below links its own copy
   "build-native-legacy-display.py",   # the NativeLegacyDisplay / GopFramebuffer late archive
   "build-boot-progress.py",           # the boot progress display (kits/sirius, the readable kernel log)
   "build-sirius-pmgr.py",             # the ApplePMGRNub advertisement for AMFI (kits/sirius/SiriusPmgr.cpp)
