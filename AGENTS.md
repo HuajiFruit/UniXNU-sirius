@@ -39,9 +39,10 @@ rest.
 **Where it stops: nothing draws into the presented frames.** Next, in order:
 
 1. **Black frames.** There is no Adreno GPU driver, so CoreAnimation gets no GPU work done.
-   Find whether backboardd can render in software on this build or needs a GPU, and whether
-   the `default_fb_surface` miss matters. The live panel (`package/BootProgress.c`
-   `crash_banner`) shows the SWAP/FB/GPU counters on screen; read it after each boot.
+   The port starts from Adreno6xx (RigoLigoRLC/unixnu-adreno6xx) with an A616 backend; the
+   hardware values, the differences from its A642L backend and the milestones are in the
+   `porting.toml` gpu area. The live panel (`package/BootProgress.c` `crash_banner`) shows the
+   SWAP/FB/GPU counters on screen; read it after each boot.
 2. **Copy cost.** 180–190 ms per full-frame CPU copy caps the screen at about 5 fps.
 3. **liveactivitiesd** traps at PC `0x1ca09a4f8`; symbolize it against the 21H461 shared cache.
 4. **Touch:** Synaptics S3706 on I2C; the OnePlus 6T (`fajita`) port has a driver to adapt.
