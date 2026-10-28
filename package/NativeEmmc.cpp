@@ -22,6 +22,8 @@
 #include <kern/host.h>
 #include <mach/host_info.h>
 extern "C" kern_return_t host_statistics64(host_t host, host_flavor_t flavor, host_info_t info, mach_msg_type_number_t *count);
+/* kern/host.h declares realhost only for MACH_KERNEL_PRIVATE code; only its address is needed here. */
+extern "C" struct host realhost;
 #include <kern/sched_prim.h>
 #include <libkern/libkern.h>
 #include <sys/param.h>
@@ -291,7 +293,7 @@ nemmc_log_load(void)
 	mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
 	uint64_t delta[CPU_STATE_MAX], sum = 0;
 
-	if (host_statistics64(&realhost, HOST_CPU_LOAD_INFO, (host_info_t)&load, &count) != KERN_SUCCESS) {
+	if (host_statistics64((host_t)&realhost, HOST_CPU_LOAD_INFO, (host_info_t)&load, &count) != KERN_SUCCESS) {
 		return;
 	}
 	for (unsigned i = 0; i < CPU_STATE_MAX; i++) {
