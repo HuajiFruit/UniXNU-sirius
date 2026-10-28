@@ -36,7 +36,14 @@ rest.
 | Presentation | 8 swaps accepted, 6 full frames CPU-copied (180–190 ms each), **all black**; `gpu offers=0`; IOMFB logs `default_fb_surface: No Default FB Surface found` at 224.9 s |
 | Userspace | no panic after 24.5 min; SpringBoard no longer crash-loops; liveactivitiesd traps (SIGTRAP) at the same PC every launch; one xpcproxy exits 78 |
 
-**Where it stops: nothing draws into the presented frames.** Next, in order:
+**Update (kernel `1a8a151`, payload `6b03df1`, commit `f5b179d`):** with the AppleKeyStore stand-in
+(`AppleKeyStoreState`, `offline-key-events=1 sheng-aks=1`) iOS draws its Apple logo with a moving
+progress bar, slowly. `pmap.c:3514 Assertion failed: not_in_kdp` lands in the panel's panic
+buffer at 215.7 s without stopping the kernel; capture without `--match` to see past it
+(`docs/evidence/sirius-usb-console-20261028-keystore.log`). The stage now is **speed**: no CPU
+frequency driver, a 180–190 ms CPU copy per frame, 50 MHz eMMC, a 1 GiB window.
+
+Before the stand-in the stop was: nothing draws into the presented frames. Next, in order:
 
 1. **Black frames.** There is no Adreno GPU driver, so CoreAnimation gets no GPU work done.
    The port starts from Adreno6xx (RigoLigoRLC/unixnu-adreno6xx) with an A616 backend; the

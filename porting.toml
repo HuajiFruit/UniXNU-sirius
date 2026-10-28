@@ -476,11 +476,12 @@ limits = [
   "No battery reporting, no CPU frequency policy and no PMIC driver.",
 ]
 next_action = [
-  "Boot with the keystore stand-in: the AKS rows (extension slots 0-1: opens, calls, selector:count; X0/X1 in the USB console's boot log) show whether libaks reaches it, and the panel's FB/SWAP rows whether SpringBoard then presents a picture.",
+  "Measure what makes the Apple-logo stage slow (the live panel's LOAD, SCHED, FB and storage rows, captured without --match so the log runs past the assert text), and find what stored the not_in_kdp assert.",
   "Keep sleep-disabled until a resume path exists.",
 ]
 evidence = [
   { kind = "source", reference = "docs/HANDOFF.zh-CN.md", result = "PSCI reset evidence and the reason sleep is disabled." },
+  { kind = "device", reference = "docs/evidence/sirius-usb-console-20261028-keystore.log", command = "fastboot flash vendor payload-O-keystore.img; fastboot reboot; python scripts/capture-usb-console.py --follow --wait 120 --duration 280 --match 'NEMMC PANIC TEXT END' --idle-stop 20", revision = "f5b179d6bf746cf80028cd222823a048f8d6e905", result = "kernel.macho 1a8a1511ad225f51760442fd657596218406c87e6b9c5d43929f33d2c8449b99, payload 6b03df13c9036952722a51f1bf1fe06691508dcea0daeda90e27082b3c15ab4c: the same path as without the stand-in (display at 51.8 s, early boot complete at 163.0 s, display client at 178.4 s, power state 1 at 210.3 s, default_fb_surface miss at 213.9 s), then 'pmap.c:3514 Assertion failed: not_in_kdp' appears in the panel's panic buffer at 215.7 s (pmap_tt1_deallocate ran while the debugger flag was set). The boot did not stop there: the heartbeat kept running and, with the cable unplugged and no reboot, the screen went on to iOS's Apple logo with a moving progress bar, the first picture the OS has drawn on this phone. The capture ended only because --match stops on the panic marker. No crash or ENOSPC line; the console carries no keystore line." },
 ]
 
 [[area]]
@@ -548,6 +549,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "The NEMMC heartbeat mirrors boot_progress_panic_text once it is non-empty, not only on a fatal panic: with the stand-in it carried 'pmap.c:3514 Assertion failed: not_in_kdp' at 215.7 s while the kernel kept running and iOS went on to draw its Apple logo, so --match 'NEMMC PANIC TEXT END' can end a capture of a boot that is still alive (docs/evidence/sirius-usb-console-20261028-keystore.log).",
   "KeyStoreProbe.cpp writes the AppleKeyStore counters (opens, calls, selector:count) into extension slots 0-1, which the boot page draws and BootLog exports as X0/X1.",
   "A register write-and-read-back test is the next diagnostic for the eMMC data phase, because SDHCI_TRANSFER_MODE reads back 0x33 after writing 0x13, which separates a write the vendor layer ignores from a command that is never sent.",
   "The eMMC probe reports every step (controller registers, the clock tree, the response registers around CMD0/CMD1 and each failure) into the USB console ring, which is how the card clock and CMD2 findings above were obtained without a photograph.",
