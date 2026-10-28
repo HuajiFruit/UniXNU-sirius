@@ -38,6 +38,7 @@ procedure = [
 ]
 findings = [
   "board.toml gained build-sirius-emmc.py in the archive list next to the USB console entry.",
+  "board.toml selects AppleKeyStoreState in [components] include and passes offline-key-events=1 and sheng-aks=1 for the AppleKeyStore stand-in (see the power area).",
   "board.toml lists build-sirius-emmc.py alongside the other archives, because the SDCC1 probe is compiled the same way as the USB console and joins the same force-loaded archive.",
   "Format 2 replaced the hand-written ADT generator of the legacy port (scripts/make-sirius-adt.py) with a board DTS: the payload step compiles the tree and derives kernel.macho.adt from it.",
   "The arm-io base is derived from the exported nodes, not written by hand: the GIC at 0x17a00000 makes the window start at 0x17000000, which XNU reads as the SoC base.",
@@ -292,6 +293,7 @@ procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
 ]
 findings = [
+  "The late display probe calls native_keystore_probe() first, and the late archive carries KeyStoreProbe.o and NativeKeyStoreEvents.late.o, whose static constructor is removed and run by the probe between preModLoad and postModLoad.",
   "The panel gained an EMMC row (step, version, capabilities, state, clock, power, clock-branch halts) next to the USB row, so the storage bring-up is visible without a serial link.",
   "The USB row (drawn by this panel) labels its six values after what they now carry - step, txev, rxev, chars, echo, poll - because they were first wired to register names and had drifted.",
   "The panel is the readable kernel log of this port: it renders the console, the TOPO/PROBE rows and panic() output.",
@@ -447,14 +449,16 @@ evidence = []
 [[area]]
 id = "power"
 status = "planned"
-components = []
-paths = ["dts/sirius.dts"]
+components = ["AppleKeyStoreState"]
+paths = ["dts/sirius.dts", "package/KeyStoreProbe.cpp"]
 inputs = [
   "No suspend/resume path exists; the boot-progress panel is the only power-facing behaviour so far.",
+  "There is no SEP: nothing answers AppleKeyStore, which the unchanged libaks/MobileKeyBag ask for the device and lock state.",
 ]
 configuration = [
   "board.toml writes [adt.defaults] sleep-disabled = 1 so the CPU does not park forever.",
   "PSCI is declared in the SoC DTSI and used for reset and secondary-core start.",
+  "AppleKeyStoreState is selected as sheng and asteroids select it: package/KeyStoreProbe.cpp (sheng's, at 08cde20edc3254ed6f7df8d0f5384fb887786e8f) publishes its service from the display late probe with offline-key-events=1, and sheng-aks=1 lets its user client answer the state queries (no passcode, unlocked). scripts/build-native-legacy-display.py compiles both into libNativeLegacyDisplay.late.a. It stores no key and protects nothing.",
 ]
 procedure = [
   "Follow the power guide to add the PMIC and battery controls once the platform expert is stable.",
@@ -462,6 +466,7 @@ procedure = [
 findings = [
   "The eMMC probe does not vote any RPMH resource; it re-enables the GCC SDCC1 branches that the boot chain had already set.",
   "Reset works through PSCI (the stage-3 reset loop proved it).",
+  "On asteroids SpringBoard never finished booting on persistent Data without the AppleKeyStore stand-in and reached its first picture with it (UniXNU docs/devices/asteroids.md, T20-T29); sirius shows the same state: persistent Data, SpringBoard no longer crashing, a few black frames and then no swaps.",
 ]
 completion = [
   "Declared power controls and battery readings match observations and sleep/resume restores the dependent peripherals.",
@@ -470,7 +475,8 @@ limits = [
   "No battery reporting, no CPU frequency policy and no PMIC driver.",
 ]
 next_action = [
-  "Defer until IOKit and storage are stable; keep sleep-disabled until a resume path exists.",
+  "Boot with the keystore stand-in: the AKS rows (extension slots 0-1: opens, calls, selector:count; X0/X1 in the USB console's boot log) show whether libaks reaches it, and the panel's FB/SWAP rows whether SpringBoard then presents a picture.",
+  "Keep sleep-disabled until a resume path exists.",
 ]
 evidence = [
   { kind = "source", reference = "docs/HANDOFF.zh-CN.md", result = "PSCI reset evidence and the reason sleep is disabled." },
@@ -540,6 +546,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "KeyStoreProbe.cpp writes the AppleKeyStore counters (opens, calls, selector:count) into extension slots 0-1, which the boot page draws and BootLog exports as X0/X1.",
   "A register write-and-read-back test is the next diagnostic for the eMMC data phase, because SDHCI_TRANSFER_MODE reads back 0x33 after writing 0x13, which separates a write the vendor layer ignores from a command that is never sent.",
   "The eMMC probe reports every step (controller registers, the clock tree, the response registers around CMD0/CMD1 and each failure) into the USB console ring, which is how the card clock and CMD2 findings above were obtained without a photograph.",
   "The eMMC probe reports through sirius_usb_log_char() straight into the USB console ring, because kernel console output stops reaching the ring long before bsd_init runs.",

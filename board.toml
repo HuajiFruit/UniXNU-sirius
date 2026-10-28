@@ -27,7 +27,7 @@ kit = "sirius"
 # the board's fork with the GIC-500 pre-configuration and the INTID 19 timer. XnuPrelink is the
 # prelink kit the OS profile names.
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "XnuPrelink", "DarwinBoot", "GopFramebuffer"]
+include = ["ArmDTPlatform", "ArmCpu", "XnuPrelink", "DarwinBoot", "GopFramebuffer", "AppleKeyStoreState"]
 
 # The unchanged iPad7,1 iPadOS 17.7.11 restore image, the same target as fajita and sheng.
 # SDM710 (Kryo 360, Cortex-A75/A55) is ARMv8.2 without pointer authentication, so it runs
@@ -137,6 +137,9 @@ kernel_args = [
   "offline-apfs-load=1",            # load APFS
   "sheng-vsync=60",                 # 60 Hz software vsync heartbeat
                                     # patches/xnu/sirius-skip-rootauth.patch
+  "offline-key-events=1",           # kits/sirius/KeyStoreProbe.cpp publishes the AppleKeyStoreState service
+  "sheng-aks=1",                    # its user client answers the state queries (no passcode, unlocked): with
+                                    # persistent Data SpringBoard does not finish booting without them
   # "sirius_usb_power=1",           # opt-in: power the USB GDSC and report the readback (proven safe).
   #                                 # 2/3/4 additionally touch the branch clocks; on SDM710 that stalls the
   #                                 # bus and reboots the phone unless the clock sources are programmed first.

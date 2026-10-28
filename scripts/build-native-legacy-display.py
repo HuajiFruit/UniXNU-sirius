@@ -282,6 +282,15 @@ stubs_src = ROOT / 'kits/sirius/LegacyDisplayStubs.c'
 stubs_obj = OUT / 'LegacyDisplayStubs.o'
 build_c_object(stubs_src, stubs_obj)
 
+# The AppleKeyStore stand-in: the board probe that publishes it and the AppleKeyStoreState service it publishes.
+keystore_src = ROOT / 'kits/sirius/KeyStoreProbe.cpp'
+keystore_obj = OUT / 'KeyStoreProbe.o'
+build_cxx_object(keystore_src, keystore_obj)
+
+keyevents_src = ROOT / 'drivers/AppleKeyStoreState/NativeKeyStoreEvents.cpp'
+keyevents_obj = OUT / 'NativeKeyStoreEvents.o'
+build_cxx_object(keyevents_src, keyevents_obj)
+
 # 5. Extract compiled vtable references from NativeLegacyDisplay.o and resolve bindings
 raw = disp_obj.read_bytes()
 image = macho(raw)
@@ -369,11 +378,22 @@ subprocess.run([
     str(pres_late),
 ], check=True)
 
+# KeyStoreProbe.cpp runs this constructor itself between preModLoad and postModLoad.
+keyevents_late = OUT / 'NativeKeyStoreEvents.late.o'
+subprocess.run([
+    str(objcopy),
+    '--remove-section=__DATA,__mod_init_func',
+    '--globalize-symbol=__GLOBAL__sub_I_NativeKeyStoreEvents.cpp',
+    str(keyevents_obj),
+    str(keyevents_late),
+], check=True)
+
 # 7. Archive objects into libNativeLegacyDisplay.late.a
 ar_cmd = find_ar()
 archive = OUT / 'libNativeLegacyDisplay.late.a'
 archive.unlink(missing_ok=True)
-subprocess.run([*ar_cmd, 'rcs', str(archive), str(disp_late), str(pres_late), str(bindings_obj), str(probe_obj), str(stubs_obj)],
+subprocess.run([*ar_cmd, 'rcs', str(archive), str(disp_late), str(pres_late), str(bindings_obj), str(probe_obj), str(stubs_obj),
+                str(keystore_obj), str(keyevents_late)],
                check=True)
 
 # 8. Write build-report.json
@@ -384,6 +404,8 @@ source_files = [
     ROOT / 'drivers/GopFramebuffer/NativeGOPWire.h',
     probe_src,
     stubs_src,
+    keystore_src,
+    keyevents_src,
 ]
 
 owned_entries = sorted([0, 1, 7, 14, 84, 86, 87, 141, 155, 184, 188, 288, 290, 296, 301] + pure_slots)

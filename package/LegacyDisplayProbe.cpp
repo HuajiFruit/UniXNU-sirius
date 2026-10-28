@@ -556,7 +556,12 @@ void native_legacy_display_probe(void) {
     native_legacy_display_checkpoint();
 }
 
+// The AppleKeyStore stand-in (package/KeyStoreProbe.cpp, offline-key-events=1 with sheng-aks=1): with persistent Data
+// SpringBoard does not finish booting without an AppleKeyStore to answer its state queries.
+extern "C" void native_keystore_probe(void);
+
 void native_legacy_display_late_probe(void) {
+    native_keystore_probe();
     IOService *display = pendingLegacyDisplay;
     if (!display) return;
     pendingLegacyDisplay = nullptr;
