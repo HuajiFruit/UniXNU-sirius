@@ -51,6 +51,7 @@ findings = [
   "Past early boot the 32 MiB Data volume runs out of space (ENOSPC) and watchdogd traps (brk #1), which panics the boot. kernel_args now pass sheng-disable-watchdogd=1 and sheng-lite=1 to package/BootWatchdogPolicy.c (already linked and called after the Data mount), which disables watchdogd and the network/iCloud/photo daemons through launchd's disabled.plist, and the seed workflow grows the container to size_mib (256 MiB, held in RAM inside the 1 GiB window); the volume UUID stays across the grow. Not yet booted.",
   "Each seed workflow run formats a new volume, so the 256 MiB seed (run 40621149780, owner-data.cdr 48a10f78...) has UUID E06A21C1-6686-49B8-B242-ED82B00F4AF8, which the defconfig now names; with the seed inside, the payload files take 306 MiB, so [payload] size_mib is 512 (the vendor partition holds 3 GiB).",
   "Persistent Data configuration: kernel_args now passes sirius-data-write=1 so NativeEmmc publishes the persistent Data container behind the root image in userdata read-write; [payload] size_mib is reset to 256 MiB because the Data container no longer travels in the vendor payload volume; .github/workflows/data-seed.yml default container size is updated to 8192 MiB.",
+  "Display configuration: board.toml adds GopFramebuffer to [components] include, replaces build-sirius-probes.py with build-native-legacy-display.py in [kernel] archives, adds offline-legacy-register=1, offline-legacy-gop=1, offline-legacy-unit-scale=2, offline-legacy-pm=1, offline-legacy-validate=1, offline-legacy-transfer=1, offline-legacy-cpu-present=1, offline-legacy-phase=4, offline-mobile-graphics-client=1, offline-mobile-graphics-load=1, offline-apfs-load=1, sheng-vsync=60 to kernel_args, and sets artwork-display-gamut=sRGB in [adt.product.string]; configs/sirius_defconfig enables CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y, clears CONFIG_XNU_EXTRA_LD_ARCHIVES, and updates CONFIG_XNU_OWNER_DATA_VOLUME_UUID to match the persistent Data volume.",
 ]
 completion = [
   "status --json resolves the ARM64, sdm710, iPadOS and device layers, prints a non-empty patch order and shows the device package as kits/sirius.",
@@ -264,15 +265,27 @@ evidence = [
 [[area]]
 id = "display"
 status = "implemented"
-components = []
-paths = ["package/BootProgress.c", "package/BootLog.c", "package/Font.h", "scripts/build-boot-progress.py"]
+components = ["GopFramebuffer"]
+paths = [
+  "package/BootProgress.c",
+  "package/BootLog.c",
+  "package/Font.h",
+  "scripts/build-boot-progress.py",
+  "package/LegacyDisplayProbe.cpp",
+  "package/LegacyDisplayStubs.c",
+  "scripts/build-native-legacy-display.py",
+  "scripts/build-sirius-probes.py",
+]
 inputs = [
   "U-Boot hands over a 1080x2240 splash framebuffer at 0x9c000000 through GOP (vidconsole).",
   "The panel is 1080x2244 DSI; there is no backlight or display driver in the kernel yet.",
+  "GopFramebuffer driver subclasses IOMobileFramebufferLegacy with GOP backend mapped at 0x9c000000.",
 ]
 configuration = [
   "CONFIG_XNU_BOOT_PROGRESS=y links the boot-progress layer; boot-progress=2 on the command line draws the kernel console lines.",
   "package/Font.h is vendored from Mu-Silicium, so the archive builds without a UEFI checkout.",
+  "CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y links libNativeLegacyDisplay.late.a built via scripts/build-native-legacy-display.py.",
+  "board.toml enables offline-legacy-register=1, offline-legacy-gop=1, offline-legacy-unit-scale=2, offline-legacy-pm=1, offline-legacy-phase=4, and artwork-display-gamut=sRGB.",
 ]
 procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
@@ -282,6 +295,9 @@ findings = [
   "The USB row (drawn by this panel) labels its six values after what they now carry - step, txev, rxev, chars, echo, poll - because they were first wired to register names and had drifted.",
   "The panel is the readable kernel log of this port: it renders the console, the TOPO/PROBE rows and panic() output.",
   "Since the panic snapshot patch the panel re-renders at panic time, so the rows are not a stale frame.",
+  "NativeLegacyDisplay and NativeGOPPresenter compile as a late archive (libNativeLegacyDisplay.late.a) via scripts/build-native-legacy-display.py, stripping static constructors from __DATA,__mod_init_func and globalizing them so the board display probe in LegacyDisplayProbe.cpp runs them safely after prelinked kexts have been admitted.",
+  "Audit against the 21H461 kernelcache proved the exact 13 dispatch table / constructor / method targets for IOMobileFramebufferLegacy and its 358-entry vtable with 9 abstract leaves.",
+  "The GOP framebuffer nub publishes under /arm-io as display-subsystem in phase 4, registering power management and publishing the display service so SpringBoard stops crash-looping.",
 ]
 completion = [
   "A known frame appears with correct geometry, and the kernel console and panic output stay readable on the panel.",
@@ -290,7 +306,7 @@ limits = [
   "This is a firmware framebuffer text surface, not a Darwin display driver: no IOMobileFramebuffer, no backlight, no modesetting.",
 ]
 next_action = [
-  "Keep the panel as the diagnostic surface until a display provider exists, and record each new row it prints.",
+  "Boot the kernel with the NativeLegacyDisplay driver, capture the serial console, and verify SpringBoard attaches to the display without crashing.",
 ]
 evidence = [
   { kind = "source", reference = "docs/HANDOFF.zh-CN.md", result = "Boot-progress panel behaviour, the panic snapshot fix and the geometry of the U-Boot framebuffer." },
@@ -528,6 +544,7 @@ findings = [
   "capture-usb-console.py --duration counts from the script's start: counted from the port, which a boot brings up after about a minute, a 280 s capture ran about 5.6 minutes.",
   "Persistent Data diagnostics: the driver logs 'EMMC write window lba=... blocks=... cache=...' on window configuration, reports EXT_CSD CACHE_CTRL in the probe, logs fallback to single-block writes if a multi-block write command fails, logs 'NEMMC data window lba=... blocks=...' when the persistent container is discovered, logs 'NEMMC data volume (eMMC) ...' or 'NEMMC data volume (RAM) ...' when resolved, and logs 'NEMMC write failed lba ...' on write errors.",
   "With the persistent 8 GiB Data volume, the entire boot capture runs past early boot (159.6 s) up to 280 s with zero ENOSPC lines (vs 187 on the 256 MiB RAM seed); containermanagerd, launchd, and analyticsd write without running out of disk space; APFS transaction flushes advance through xid 85; SpringBoard (pid 118) and liveactivitiesd (pid 128) crash for want of a display/framebuffer driver.",
+  "Display driver diagnostics: LegacyDisplayProbe.cpp and LegacyDisplayStubs.c interpose on native_legacy_display_probe and native_legacy_display_late_probe, mapping the 1080x2240 GOP framebuffer at 0x9c000000, setting up the display-subsystem platform device under /arm-io, and providing weak stubs for boot progress scanout and DPU mappings.",
 ]
 completion = [
   "Each claimed milestone has a reproducible command, a matching source and image revision and an accessible result.",

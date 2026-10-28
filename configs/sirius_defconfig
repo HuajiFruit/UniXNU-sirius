@@ -25,13 +25,13 @@ CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
 # The DEVELOPMENT kernel references native_legacy_display_probe() unconditionally
 # (offline-component-load-probes.patch); the dormant stub archive of
 # scripts/build-sirius-probes.py keeps the link closed (package/LegacyDisplayProbe.cpp).
-CONFIG_XNU_EXTRA_LD_ARCHIVES="-Wl,-force_load,{tree}/build/sirius-probes/libSiriusProbes.a"
+CONFIG_XNU_EXTRA_LD_ARCHIVES=""
 CONFIG_XNU_NATIVE_UFS=n
 CONFIG_XNU_NATIVE_AES=n
 CONFIG_XNU_NATIVE_VIRTIO_BLOCK=n
 CONFIG_XNU_NATIVE_RAM_BLOCK=n
 CONFIG_XNU_NATIVE_MOBILE_DISPLAY=n
-CONFIG_XNU_NATIVE_LEGACY_DISPLAY=n
+CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y
 CONFIG_XNU_ARMVIRT_PLATFORM=n
 
 # Profile settings turned off on purpose. The ARM64 profile enables the native AES accelerator,
@@ -87,4 +87,4 @@ CONFIG_XNU_OWNER_UNION_SYSTEMOS=y
 # window either way and reports a differing UUID, so keep this in step with the seed in use.
 CONFIG_XNU_OWNER_DATA_MOUNT=y
 CONFIG_XNU_SIRIUS_DATA_SEED=y
-CONFIG_XNU_OWNER_DATA_VOLUME_UUID="E06A21C1-6686-49B8-B242-ED82B00F4AF8"
+CONFIG_XNU_OWNER_DATA_VOLUME_UUID="0C28586B-DF4D-4644-BBF0-B8EEA40A9CC5"

@@ -27,7 +27,7 @@ kit = "sirius"
 # the board's fork with the GIC-500 pre-configuration and the INTID 19 timer. XnuPrelink is the
 # prelink kit the OS profile names.
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "XnuPrelink", "DarwinBoot"]
+include = ["ArmDTPlatform", "ArmCpu", "XnuPrelink", "DarwinBoot", "GopFramebuffer"]
 
 # The unchanged iPad7,1 iPadOS 17.7.11 restore image, the same target as fajita and sheng.
 # SDM710 (Kryo 360, Cortex-A75/A55) is ARMv8.2 without pointer authentication, so it runs
@@ -56,7 +56,7 @@ archives = [
   "component:ArmDTPlatform",
   "component:ArmCpu",
   "build-libpthread-kernel.py",
-  "build-sirius-probes.py",           # the dormant probe stubs (package/LegacyDisplayProbe.cpp)
+  "build-native-legacy-display.py",   # the NativeLegacyDisplay / GopFramebuffer late archive
   "build-boot-progress.py",           # the boot progress display (kits/sirius, the readable kernel log)
   "build-sirius-pmgr.py",             # the ApplePMGRNub advertisement for AMFI (kits/sirius/SiriusPmgr.cpp)
   "build-sirius-usb.py",              # the CDC-ACM log console (kits/sirius/sirius_usb.c)
@@ -124,6 +124,18 @@ kernel_args = [
   "sheng-lite=1",                   # the same policy also disables the network/iCloud/photo daemons this phone has no use
                                     # for, which compete with SpringBoard for memory and fill the small Data volume
   "sirius-skip-rootauth=1",         # the sealed-root answer needs the owner-root chain; see
+  "offline-legacy-register=1",      # register GOP framebuffer service
+  "offline-legacy-gop=1",           # enable hardware GOP mapping
+  "offline-legacy-unit-scale=2",    # 2x display unit scale for high DPI
+  "offline-legacy-pm=1",            # publish display PM states
+  "offline-legacy-validate=1",      # validate swap requests
+  "offline-legacy-transfer=1",      # transfer framebuffers
+  "offline-legacy-cpu-present=1",   # CPU pixel copy presentation
+  "offline-legacy-phase=4",         # phase 4 display subsystem registration under /arm-io
+  "offline-mobile-graphics-client=1", # support MobileGraphics client
+  "offline-mobile-graphics-load=1", # load MobileGraphics
+  "offline-apfs-load=1",            # load APFS
+  "sheng-vsync=60",                 # 60 Hz software vsync heartbeat
                                     # patches/xnu/sirius-skip-rootauth.patch
   # "sirius_usb_power=1",           # opt-in: power the USB GDSC and report the readback (proven safe).
   #                                 # 2/3/4 additionally touch the branch clocks; on SDM710 that stalls the
@@ -155,6 +167,7 @@ boot-manifest-hash = "5fd2fc139b688ddf071aa815c1ea75d26bcd994a528cf02e365661eab5
 
 [adt.product.string]
 model = "xiaomi,sirius"
+artwork-display-gamut = "sRGB"
 
 [adt.defaults.u32]
 sleep-disabled = 1                  # no suspend/resume on this board: do not let the CPU park forever
