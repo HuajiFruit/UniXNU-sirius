@@ -163,6 +163,10 @@ kernel_args = [
   "sheng-aks=1",                    # its user client answers the state queries (no passcode, unlocked): with
                                     # persistent Data SpringBoard does not finish booting without them
   "sirius-spawn-log=1",             # package/BootProgress.c: a SPAWN console line per exec and exit, with the second
+  "validation_disables=0x10",       # KF_STACKSHOT_OVRD: user stackshots return KERN_NOT_SUPPORTED. Watchdogs ask
+                                    # for one before they kill a hung job, and on this port threads keep changing while
+                                    # it runs, so the DEVELOPMENT check panics: "thread wait info count mismatch while
+                                    # capturing snapshots" (kern_stackshot.c:3451), at 335 s
   # "sirius_usb_power=1",           # opt-in: power the USB GDSC and report the readback (proven safe).
   #                                 # 2/3/4 additionally touch the branch clocks; on SDM710 that stalls the
   #                                 # bus and reboots the phone unless the clock sources are programmed first.
