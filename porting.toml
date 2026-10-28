@@ -42,6 +42,11 @@ findings = [
   "Format 2 replaced the hand-written ADT generator of the legacy port (scripts/make-sirius-adt.py) with a board DTS: the payload step compiles the tree and derives kernel.macho.adt from it.",
   "The arm-io base is derived from the exported nodes, not written by hand: the GIC at 0x17a00000 makes the window start at 0x17000000, which XNU reads as the SoC base.",
   "The legacy port set ipad_identity = true; in format 2 the same identity is the OS profile's [adt] tables, so the board only states its deviations.",
+  "configs/sirius_defconfig keeps the ARM64 profile's CONFIG_XNU_NATIVE_PAN=y: Kryo 360 implements PAN and SCTLR_EL1 leaves SPAN clear, so every exception entry sets PSTATE.PAN, and only the PAN build clears it around copyin/copyout (see the diagnostics area).",
+  "CONFIG_XNU_NATIVE_CS_HASH_CACHE=y is back on: iPadOS signs code in 16 KiB pages, and this 4 KiB kernel accepts the dyld shared cache's signature only through the native 4K hash cache.",
+  "The SystemOS cryptex mount (OWNER_CACHE_MOUNT, OWNER_CACHE_STARTUP, OWNER_UNION_SYSTEMOS) builds in the bring-up mode BRINGUP_OWNER_CACHE, as the uke port does, and its volume is authorized by the boot argument sirius-allow-unverified=1, not by an owner root policy.",
+  "sirius_emmc_hs=3 lets the eMMC driver climb to 25, 50 and 100 MHz, each step proven against blocks read at 400 kHz; the card settles at 50 MHz (HS_TIMING 1).",
+  "The Data volume: OWNER_DATA_MOUNT with SIRIUS_DATA_SEED (NativeEmmc serves the seed instead of RamBlock) and CONFIG_XNU_OWNER_DATA_VOLUME_UUID = EB6CBBA0-ECB9-4556-A483-4B60D54D4306, the volume of the seed that .github/workflows/data-seed.yml built; [payload.adt] owned_memory_size gives the kernel a 1 GiB window to hold the seed. Not yet booted.",
 ]
 completion = [
   "status --json resolves the ARM64, sdm710, iPadOS and device layers, prints a non-empty patch order and shows the device package as kits/sirius.",
@@ -49,7 +54,8 @@ completion = [
 ]
 limits = [
   "The SoC profile is new: only the GIC, PSCI, counter and the timer INTID are shared, everything else is still board-local.",
-  "No device-verified configuration has been recorded against a commit of this repository yet; the evidence is the legacy port's handoff document.",
+  "The Data seed holds files from the IPSW, so the workflow uploads it encrypted (ARTIFACT_PASSPHRASE) and the payload step takes it from a local path; a new seed has a new volume UUID that the defconfig must follow.",
+  "The 1 GiB window must start below 4 GiB for the eMMC's 32-bit ADMA2; whether this unit's memory map offers one such run is not yet observed.",
 ]
 next_action = [
   "Run status --json and tree against this repository and commit the resulting unixnu.lock.",
@@ -57,6 +63,9 @@ next_action = [
 ]
 evidence = [
   { kind = "source", reference = "docs/HANDOFF.zh-CN.md", result = "Hardware values, the boot chain and the bring-up history of the legacy port, from which this configuration is carried over." },
+  { kind = "device", reference = "docs/evidence/sirius-usb-console-20261027-pan.log", command = "fastboot flash vendor payload-E-pan-noclear.img; fastboot reboot; python scripts/capture-usb-console.py --follow --wait 180 --duration 420", revision = "b1a11c4f4eb0bfd28b2dd3dfc59b3c7e3a3e742f", result = "With CONFIG_XNU_NATIVE_PAN=y the driver reads PAN as 4194304, all eight CPUs pass the init copyout and launchd's first syscalls return." },
+  { kind = "device", reference = "docs/evidence/sirius-usb-console-20261027-fast-emmc.log", command = "fastboot flash vendor payload-H-fast.img; fastboot reboot; python scripts/capture-usb-console.py --follow --wait 180 --duration 900", revision = "1163990229f446753ef006126e55922aa23bda6a", result = "With the SystemOS mount, the 4K hash cache and sirius_emmc_hs=3 the shared cache is verified in about 104 s at 50 MHz and dyld maps it." },
+  { kind = "host", reference = ".github/workflows/data-seed.yml", command = "gh workflow run data-seed.yml -R HuajiFruit/UniXNU-sirius --ref main", revision = "9562de8b362e6bbae9844052826c609996866aed", result = "Run 40615426205 built owner-data-32.cdr (33554432 bytes, sha256 5679d2cf59eba99aa048be0c0e253581aa5bfb1fdff7ff431ed9e91c2bd58c63) with APFS volume EB6CBBA0-ECB9-4556-A483-4B60D54D4306." },
 ]
 
 [[area]]
