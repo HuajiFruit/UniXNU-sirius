@@ -162,13 +162,18 @@ def main():
     parser.add_argument('--timeline', default=None,
                         help='also write each distinct line once, prefixed with the seconds since the script '
                              'started at which it first arrived; start the script right after the reboot')
+    parser.add_argument('--idle-stop', type=float, default=0.0,
+                        help='stop once no new line has arrived for this many seconds (0 = never); the eMMC '
+                             'heartbeat adds one every two seconds while the kernel runs, so silence means it stopped')
     args = parser.parse_args()
     started = time.time()
     # The driver replays its whole ring on every poke, so a line arrives many times; only its first
     # arrival says when it was written (within a poke or two once the console is up).
     timeline = open(args.timeline, 'a', encoding='utf-8') if args.timeline else None
+    track_lines = timeline is not None or args.idle_stop > 0
     seen_lines = set()
     partial = b''
+    last_new_line = None
 
     port = args.port or wait_for_port(args.wait)
     if port is None:
@@ -220,6 +225,11 @@ def main():
                             except OSError:
                                 pass
                             next_poke = time.time() + 1.0
+                        if (args.idle_stop > 0 and last_new_line is not None and
+                                time.time() - last_new_line >= args.idle_stop):
+                            print(f'no new line for {args.idle_stop:.0f}s, stopping after {total} bytes',
+                                  file=sys.stderr)
+                            return 0
                         chunk = console.read()
                         if chunk is None:
                             break
@@ -228,16 +238,19 @@ def main():
                         log.write(chunk)
                         log.flush()
                         total += len(chunk)
-                        if timeline is not None:
+                        if track_lines:
                             lines = (partial + chunk).split(b'\n')
                             partial = lines.pop()
                             for line in lines:
                                 line = line.rstrip(b'\r')
                                 if line and line not in seen_lines:
                                     seen_lines.add(line)
-                                    timeline.write(f'{time.time() - started:8.1f} '
-                                                   f'{line.decode("utf-8", "replace")}\n')
-                            timeline.flush()
+                                    last_new_line = time.time()
+                                    if timeline is not None:
+                                        timeline.write(f'{last_new_line - started:8.1f} '
+                                                       f'{line.decode("utf-8", "replace")}\n')
+                            if timeline is not None:
+                                timeline.flush()
                         sys.stdout.write(chunk.decode('utf-8', 'replace'))
                         sys.stdout.flush()
                         tail = (tail + chunk)[-int(args.match_window):] if args.match else b''
