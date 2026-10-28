@@ -202,7 +202,7 @@ procedure = [
   "Read the evidence off the boot-progress console: the probe prints the GPT rows, the driver logs the block count it publishes.",
 ]
 findings = [
-  "NativeEmmc's heartbeat also carries the display copy counters every fourth beat (NEMMC fb copies, copy last/mean/max us, read last us, cache source/scanout/wimg), because past about 220 s the console has no other source for them; the storage path is unchanged.",
+  "NativeEmmc's heartbeat also carries the display copy counters every fourth beat (NEMMC fb copies, copy last/mean/max us, read last us, cache source/scanout/wimg) and every sixteenth beat the clock of the core it runs on (NEMMC cpu mpidr, NEMMC cpu MHz), because past about 220 s the console has no other source for them; the storage path is unchanged.",
   "The data path works: ADMA2 reads return EFI PART from LBA 1, the GPT header parses (entries_lba=2, count=84, size=128) and 81 partitions with geometry are listed; boot 1179648..1310719, vendor 11010048..17301503, userdata 17301504..122142686.",
   "Five conditions had to hold at once: the RCG2 encoding (CFG=0x2017, M=1, N=0xfc, D=0xfb), 1.8 V I/O (the board's vqmmc), the 32-bit interrupt/error map at 0x30/0x32/0x36, the ADMA descriptor address at 0x58/0x5c rather than 0x00, and cache maintenance (flush_dcache64) because the engine reads memory and not the CPU cache.",
   "SMMU is not the blocker: the boot chain leaves it disabled (scr0=0x00230406, bit0=0) and writing S2CR hung the SoC twice, so the driver only reads SMMU state.",
@@ -557,6 +557,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "NEMMC cpu MHz counts the architectural PMU cycle counter (PMCCNTR_EL0, PMCR_EL0.E set and .D cleared, restored afterwards) over 10 ms of the system counter with interrupts off, and NEMMC cpu mpidr names the core: Affinity1 0x000-0x500 are the Cortex-A55s, 0x600-0x700 the Cortex-A75s. No CPU frequency driver exists, so it shows the clock the boot chain left.",
   "The NEMMC fb rows print the copy cost on the console: copies, last/mean/max copy time, the last timed read-only pass over a source frame, and the source map options, scanout map options and the source page's pmap attribute (VM_WIMG_*), packed as source<<40 | scanout<<20 | wimg.",
   "Past about 220 s the USB console only re-mirrors fragments of the kernel log buffer: iOS userspace does not log to it, so four 280 s windows after the not_in_kdp text add no new event (docs/evidence/sirius-usb-console-20261028-fbwc.log). Later stages are read from the screen and the panel.",
   "The NEMMC heartbeat mirrors boot_progress_panic_text once it is non-empty, not only on a fatal panic: with the stand-in it carried 'pmap.c:3514 Assertion failed: not_in_kdp' at 215.7 s while the kernel kept running and iOS went on to draw its Apple logo, so --match 'NEMMC PANIC TEXT END' can end a capture of a boot that is still alive (docs/evidence/sirius-usb-console-20261028-keystore.log).",

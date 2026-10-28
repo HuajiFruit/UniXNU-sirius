@@ -233,6 +233,43 @@ nemmc_dump_init_stack(void)
 	}
 }
 
+/* The clock this core runs at: nothing in the port sets a CPU frequency, so the cores run at whatever the boot chain left. Count the
+ * architectural PMU's cycle counter over 10 ms of the system counter with interrupts off (the thread cannot move cores meanwhile),
+ * then put PMCR_EL0 and the counter enable back as they were. XNU does not use the architectural PMU on this board. */
+static void
+nemmc_log_cpu_clock(void)
+{
+	uint64_t mpidr, pmcr, enabled, frequency, cycles0, cycles1, ticks0, ticks1;
+	boolean_t interrupts = ml_set_interrupts_enabled(FALSE);
+
+	__asm__ volatile ("mrs %0, mpidr_el1" : "=r"(mpidr));
+	__asm__ volatile ("mrs %0, cntfrq_el0" : "=r"(frequency));
+	__asm__ volatile ("mrs %0, pmcr_el0" : "=r"(pmcr));
+	__asm__ volatile ("mrs %0, pmcntenset_el0" : "=r"(enabled));
+	/* E (bit 0) on, D (bit 3, count every 64th cycle) off; enable the cycle counter (bit 31). */
+	__asm__ volatile ("msr pmcr_el0, %0" :: "r"((pmcr | 1ULL) & ~(1ULL << 3)));
+	__asm__ volatile ("msr pmcntenset_el0, %0" :: "r"(1ULL << 31));
+	__asm__ volatile ("isb");
+	if (frequency == 0) {
+		frequency = 19200000;
+	}
+	__asm__ volatile ("isb\n\tmrs %0, cntpct_el0" : "=r"(ticks0));
+	__asm__ volatile ("mrs %0, pmccntr_el0" : "=r"(cycles0));
+	do {
+		__asm__ volatile ("isb\n\tmrs %0, cntpct_el0" : "=r"(ticks1));
+	} while (ticks1 - ticks0 < frequency / 100);
+	__asm__ volatile ("mrs %0, pmccntr_el0" : "=r"(cycles1));
+	if (!(enabled & (1ULL << 31))) {
+		__asm__ volatile ("msr pmcntenclr_el0, %0" :: "r"(1ULL << 31));
+	}
+	__asm__ volatile ("msr pmcr_el0, %0" :: "r"(pmcr));
+	__asm__ volatile ("isb");
+	ml_set_interrupts_enabled(interrupts);
+
+	emmc_log_hex("NEMMC cpu mpidr ", mpidr & 0xffffff);
+	emmc_log_dec("NEMMC cpu MHz ", (cycles1 - cycles0) * frequency / (ticks1 - ticks0) / 1000000);
+}
+
 static void
 nemmc_heartbeat_thread(void *, wait_result_t)
 {
@@ -274,6 +311,9 @@ nemmc_heartbeat_thread(void *, wait_result_t)
 			emmc_log_dec("NEMMC fb reads timed ", sirius_fb_read[1]);
 			emmc_log_hex("NEMMC fb cache source/scanout/wimg ",
 			    ((uint64_t)sirius_fb_source_cache << 40) | ((uint64_t)sirius_fb_scanout_cache << 20) | sirius_fb_source_wimg);
+		}
+		if ((nemmc_heartbeats % 16) == 0) {
+			nemmc_log_cpu_clock();
 		}
 		{
 			static int reported;
