@@ -136,6 +136,8 @@ kernel_args = [
   "offline-legacy-cpu-present=1",   # CPU pixel copy presentation
   "sirius-fb-wc=1",                 # drivers/GopFramebuffer (board fork): map the scanout write-combined; uncached,
                                     # each full-frame CPU copy took 180-210 ms
+  "sirius-fb-cached=1",             # and read the write-combined source surface through a cacheable mapping,
+                                    # cleaned and invalidated before each copy
   "offline-legacy-phase=4",         # phase 4 display subsystem registration under /arm-io
   "offline-mobile-graphics-client=1", # support MobileGraphics client
   "offline-mobile-graphics-load=1", # load MobileGraphics

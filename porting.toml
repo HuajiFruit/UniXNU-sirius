@@ -39,6 +39,7 @@ procedure = [
 findings = [
   "board.toml gained build-sirius-emmc.py in the archive list next to the USB console entry.",
   "board.toml selects AppleKeyStoreState in [components] include and passes offline-key-events=1 and sheng-aks=1 for the AppleKeyStore stand-in (see the power area).",
+  "kernel_args pass sirius-fb-cached=1 for the GopFramebuffer board fork's cacheable source reads (see the display area).",
   "kernel_args pass sirius-cpufreq=1 and [kernel] archives build build-sirius-cpufreq.py into libShengPlatformPower.a (see the power area).",
   "kernel_args pass sirius-fb-wc=1 for the GopFramebuffer board fork (drivers/GopFramebuffer): the scanout is mapped write-combined instead of uncached (see the display area).",
   "A selected component with a kernel build recipe needs a component: entry in [kernel] archives, or unixnu stops with 'archives needs component entries'; that recipe runs the tree's build-arm-driver.py, which is this repository's copy, so it has to know the component's name. The recipe's archive is not linked: the kernel force-loads only the archives build-xnu-4k-baseline.sh names.",
@@ -206,6 +207,7 @@ procedure = [
   "Read the evidence off the boot-progress console: the probe prints the GPT rows, the driver logs the block count it publishes.",
 ]
 findings = [
+  "The run bounce buffer comes from IOBufferMemoryDescriptor::inTaskWithPhysicalMask (contiguous, mask 0xfffff000) instead of IOMalloc, so it stays below 4 GiB where the 32-bit ADMA2 reaches when the window grows past 0x100000000.",
   "NativeEmmc's heartbeat also carries the display copy counters every fourth beat (NEMMC fb copies, copy last/mean/max us, read last us, cache source/scanout/wimg) and every sixteenth beat the clock of the core it runs on (NEMMC cpu mpidr, NEMMC cpu MHz), the cpufreq-hw state of both clusters and the memory layout (NEMMC window base/size, NEMMC db-runs), because past about 220 s the console has no other source for them; the storage path is unchanged.",
   "The data path works: ADMA2 reads return EFI PART from LBA 1, the GPT header parses (entries_lba=2, count=84, size=128) and 81 partitions with geometry are listed; boot 1179648..1310719, vendor 11010048..17301503, userdata 17301504..122142686.",
   "Five conditions had to hold at once: the RCG2 encoding (CFG=0x2017, M=1, N=0xfc, D=0xfb), 1.8 V I/O (the board's vqmmc), the 32-bit interrupt/error map at 0x30/0x32/0x36, the ADMA descriptor address at 0x58/0x5c rather than 0x00, and cache maintenance (flush_dcache64) because the engine reads memory and not the CPU cache.",
@@ -302,6 +304,7 @@ procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
 ]
 findings = [
+  "The source surface is write-combined (VM_WIMG 0x6 on its first page) and the copy stays at 182 ms mean with the write-combined scanout (kernel 130bf97), so the source loads set the cost. sirius-fb-cached=1 maps the source with kIOMapCopybackCache and runs flush_dcache64 (clean and invalidate to PoC) over it before the content scan and the copy; NEMMC fb cache ... wimg shows the page attribute after that mapping.",
   "With sirius-fb-wc=1 the screen looked the same and the console cannot show the copy time, so the board fork now times a read-only pass over the source (the content scan of the first 32 frames) and records the cache mode of both mappings and the source page's pmap attribute: a slow read pass with a copy of the same order means the uncached source, not the scanout stores, sets the cost.",
   "With the keystore stand-in iOS presented 14954 frames by t=3500 s, every one a full 9450 KiB CPU copy at a mean of 201.7 ms (max 209.6 ms) into the uncached scanout, about 47 MB/s: the copy ran nearly the whole time the Apple logo and progress bar were up (docs/evidence/sirius-panel-20261028-keystore.log).",
   "The late display probe calls native_keystore_probe() first, and the late archive carries KeyStoreProbe.o and NativeKeyStoreEvents.late.o, whose static constructor is removed and run by the probe between preModLoad and postModLoad.",
@@ -483,6 +486,7 @@ findings = [
   "Reset works through PSCI (the stage-3 reset loop proved it).",
   "Measured with the PMU cycle counter (kernel 5df62c0, payload 8a04814): the Cortex-A55s run at 1516 MHz and the Cortex-A75s at 300 MHz, the cpufreq-hw source-0 row (GPLL0/2) the boot chain leaves (out/Q-cpuclk captures, NEMMC cpu MHz).",
   "With sirius-cpufreq=1 (kernel 130bf97, payload 216ef03, commit fb12af48938b7de333ca29b41195486b95e790ac) the A55 domain (enable 1, 9 rows) moves from row 6 to row 8 and every A55 measures 1708 MHz; the A75 domain reads enable 0 (13 rows, best 2208 MHz), so the firmware never put it under hardware DCVS, the request is skipped as Linux would, and the A75s stay at 300 MHz.",
+  "sirius_cpufreq_retry(), called from the heartbeat every sixteenth beat once the secondary cores run, re-reads each domain's enable bit and makes the request a domain did not get at EARLY_BOOT; NEMMC cpufreq ... enable shows the live bit.",
   "Under Linux on this phone (57UU/sirius-distro docs/CPU-POWER-STRESS-TEST.md) the same cpufreq-hw driver, which refuses a domain whose enable bit is 0, holds the A75s at 2208 MHz, so the A75 domain does become enabled; the enable 0 read at EARLY_BOOT is likely taken before cpu6-7 are started (not yet verified).",
   "package/sirius_cpufreq.c (sirius-cpufreq=1) reads each cluster's cpufreq-hw table (0x17d43000 cpu0-5, 0x17d45800 cpu6-7; rows at 0x110 + 32 i, PERF_STATE 0x920, current vote 0x704, the Linux qcom-cpufreq-hw layout for sdm670) at EARLY_BOOT and requests the highest non-boost row; the hardware sets voltage and its limits. The register bases are SoC facts that belong in the sdm710 SoC repository once proven.",
   "On asteroids SpringBoard never finished booting on persistent Data without the AppleKeyStore stand-in and reached its first picture with it (UniXNU docs/devices/asteroids.md, T20-T29); sirius shows the same state: persistent Data, SpringBoard no longer crashing, a few black frames and then no swaps.",

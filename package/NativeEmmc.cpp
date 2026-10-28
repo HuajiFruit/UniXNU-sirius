@@ -11,12 +11,14 @@
  */
 #include <IOKit/IOService.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <machine/machine_routines.h>
 #include <pexpert/pexpert.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <kern/thread.h>
+#include <kern/task.h>
 #include <kern/sched_prim.h>
 #include <libkern/libkern.h>
 #include <sys/param.h>
@@ -274,6 +276,7 @@ nemmc_log_cpu_clock(void)
  * drivers/DarwinBoot): the real layout that bounds owned_memory_size. */
 extern "C" unsigned long gPhysBase, gPhysSize;
 extern "C" int sirius_cpufreq_report(unsigned domain, uint32_t state[6], uint32_t *vote_mhz) __attribute__((weak_import));
+extern "C" void sirius_cpufreq_retry(void) __attribute__((weak_import));
 
 static void
 nemmc_log_memory(void)
@@ -282,6 +285,9 @@ nemmc_log_memory(void)
 
 	/* package/sirius_cpufreq.c: per cluster the enable bit, table rows, index before and requested (ff = none), the kHz of row 0
 	 * and of the highest non-boost row, then the MHz the hardware currently votes. */
+	if (&sirius_cpufreq_retry) {
+		sirius_cpufreq_retry();
+	}
 	for (unsigned domain = 0; &sirius_cpufreq_report && domain < 2; domain++) {
 		uint32_t state[6], vote = 0;
 
@@ -1460,7 +1466,12 @@ sirius_native_emmc_probe(void)
 		return;
 	}
 	if (nemmc_worker == nullptr) {
-		nemmc_bounce = (uint8_t *)IOMalloc(sirius_emmc_run_blocks * EMMC_BLOCK_SIZE);
+		/* 32-bit ADMA2 reaches only the first 4 GiB, and sirius_emmc_read_blocks refuses a page above it: with a window that
+		 * crosses 0x100000000 an IOMalloc'd bounce could land there, so it comes from a physically masked allocation. Kept for
+		 * the boot like the IOMalloc it replaces. */
+		IOBufferMemoryDescriptor *bounce = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
+		    kIODirectionInOut | kIOMemoryPhysicallyContiguous, sirius_emmc_run_blocks * EMMC_BLOCK_SIZE, 0x00000000fffff000ULL);
+		nemmc_bounce = bounce ? (uint8_t *)bounce->getBytesNoCopy() : nullptr;
 		if (nemmc_bounce == nullptr) {
 			emmc_log("NativeEmmc: no bounce buffer\n");
 			return;

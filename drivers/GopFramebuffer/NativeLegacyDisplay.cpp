@@ -50,6 +50,8 @@ extern "C" {volatile uint32_t native_legacy_direct[9];}
 extern "C" {volatile uint64_t sirius_fb_read[2];volatile uint32_t sirius_fb_source_cache,sirius_fb_scanout_cache,sirius_fb_source_wimg;}
 // The pmap's cache attribute (VM_WIMG_*) of a physical page: what the source surface really is, whatever its map options say.
 extern "C" unsigned int pmap_cache_attributes(unsigned int pn);
+// Clean and invalidate a virtual range to the point of coherency (osfmk/arm/caches_internal.h).
+extern "C" void flush_dcache64(addr64_t addr, unsigned count, int phys);
 extern "C" uint32_t native_ufs_dpu_map(unsigned slot,const uint64_t *pages,unsigned count) __attribute__((weak_import));
 extern "C" volatile uint32_t native_ufs_dpu_state __attribute__((weak_import));
 static void noteSurface(OSObject *surface,IOMemoryDescriptor *memory)
@@ -448,11 +450,18 @@ public:
             }
             return;
         }
-        IOMemoryMap *source=memory->map(kIOMapAnywhere|kIOMapReadOnly);
+        // sirius board fork: sirius-fb-cached=1 reads the source through a cacheable mapping. The compositor's surface is write-combined
+        // (VM_WIMG 0x6), so every CPU load of the copy went to memory one at a time; the mapping is cleaned and invalidated to the point
+        // of coherency as soon as it exists, so no line older than the frame the writer finished is read.
+        static int sourceCached=-1;
+        if(sourceCached<0){unsigned v=0;PE_parse_boot_argn("sirius-fb-cached",&v,sizeof v);sourceCached=(v==1);}
+        IOMemoryMap *source=memory->map(kIOMapAnywhere|kIOMapReadOnly|(sourceCached?kIOMapCopybackCache:0));
         if(!source || !source->getVirtualAddress() || source->getLength()<allocation) {
             OSSafeReleaseNULL(source);native_legacy_transfer_observed(kIOReturnNoMemory,request,0);return;
         }
         sirius_fb_source_cache=(uint32_t)(source->getMapOptions()&kIOMapCacheMask);
+        // Before the content scan and the copy read it: drop any line of this mapping older than the finished frame.
+        if(sourceCached)flush_dcache64((addr64_t)source->getVirtualAddress(),(unsigned)source->getLength(),FALSE);
         if(uint64_t physical=source->getPhysicalAddress())sirius_fb_source_wimg=pmap_cache_attributes((unsigned int)(physical>>12));
         if(!native_legacy_copy_layout(reinterpret_cast<volatile void *>(bootMapping->getVirtualAddress()),
             bootMapping->getLength(),video.v_rowBytes,reinterpret_cast<const void *>(source->getVirtualAddress()),

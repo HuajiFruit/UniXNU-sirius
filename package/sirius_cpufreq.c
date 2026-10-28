@@ -29,6 +29,8 @@ extern vm_offset_t ml_io_map(vm_offset_t phys, unsigned long size);
 
 static const uint64_t cpufreq_domain_pa[2] = { 0x17d43000ULL, 0x17d45800ULL };
 static volatile uint32_t *cpufreq_base[2];
+static unsigned cpufreq_mode;
+static uint32_t cpufreq_best[2] = { 0xff, 0xff };
 
 /* Per domain: [0] enable bit, [1] table rows, [2] index before, [3] index requested (0xff = none), [4] kHz of row 0,
  * [5] kHz of the chosen (highest non-boost) row. */
@@ -46,6 +48,7 @@ sirius_cpufreq_start(void)
 	unsigned mode = 0;
 
 	PE_parse_boot_argn("sirius-cpufreq", &mode, sizeof(mode));
+	cpufreq_mode = mode;
 	for (unsigned domain = 0; domain < 2; domain++) {
 		uint32_t previous = 0, rows = 0, best = 0xff, bestKhz = 0, firstKhz = 0;
 
@@ -77,6 +80,7 @@ sirius_cpufreq_start(void)
 		cpufreq_state[domain][2] = cpufreq_read(domain, CPUFREQ_PERF_STATE);
 		cpufreq_state[domain][4] = firstKhz;
 		cpufreq_state[domain][5] = bestKhz;
+		cpufreq_best[domain] = best;
 		if (mode == 1 && cpufreq_state[domain][0] && best != 0xff) {
 			cpufreq_base[domain][CPUFREQ_PERF_STATE / 4] = best;
 			__asm__ volatile ("dsb sy" ::: "memory");
@@ -85,6 +89,27 @@ sirius_cpufreq_start(void)
 	}
 }
 STARTUP(EARLY_BOOT, STARTUP_RANK_LAST, sirius_cpufreq_start);
+
+/*
+ * The A75 domain reads enable 0 at EARLY_BOOT, yet under Linux on this phone the same hardware runs the A75s at 2208 MHz, so the
+ * domain is likely enabled only once cpu6-7 are up. The heartbeat calls this after the secondary cores have started: it refreshes
+ * the enable bit and makes the request a domain did not get at EARLY_BOOT.
+ */
+void
+sirius_cpufreq_retry(void)
+{
+	for (unsigned domain = 0; domain < 2; domain++) {
+		if (cpufreq_base[domain] == NULL) {
+			continue;
+		}
+		cpufreq_state[domain][0] = cpufreq_read(domain, CPUFREQ_ENABLE) & 1u;
+		if (cpufreq_mode == 1 && cpufreq_state[domain][0] && cpufreq_state[domain][3] == 0xff && cpufreq_best[domain] != 0xff) {
+			cpufreq_base[domain][CPUFREQ_PERF_STATE / 4] = cpufreq_best[domain];
+			__asm__ volatile ("dsb sy" ::: "memory");
+			cpufreq_state[domain][3] = cpufreq_best[domain];
+		}
+	}
+}
 
 /* For the heartbeat: the six state words of a domain and the MHz of its current vote (0 when the window is not mapped). */
 int
