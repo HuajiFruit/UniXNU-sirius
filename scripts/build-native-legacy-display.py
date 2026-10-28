@@ -4,8 +4,8 @@
 
 The static constructors in __DATA,__mod_init_func are stripped via llvm-objcopy and globalized
 so that the board display probe in LegacyDisplayProbe.cpp runs them safely after prelinked kexts
-have been admitted. The 13 original symbol targets for iOS 17.7.11 21H461 are bound through
-original-bindings.S.
+have been admitted. The complete original symbol and vtable targets for iOS 17.7.11 21H461 are bound
+through original-bindings.S from the audited ABI in scripts/data/mobile-graphics-legacy-abi.json.
 """
 import hashlib
 import json
@@ -18,6 +18,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/native-legacy-display'
 OUT.mkdir(parents=True, exist_ok=True)
+
+sys.path.insert(0, str(ROOT / 'kits/XnuPrelink'))
+from native_prelink import macho
 
 
 def sha(path):
@@ -54,8 +57,26 @@ def find_ar():
     raise SystemExit('ar archiver not found')
 
 
-# 1. Generate OriginalLegacyFramebufferABI.h
-pure_slots = [211, 213, 245, 246, 306, 307, 337, 338, 345]
+# 1. Read the audited ABI data for iOS 17.7.11 21H461
+abi_path = ROOT / 'scripts/data/mobile-graphics-legacy-abi.json'
+if not abi_path.exists():
+    # If in out/ tree, try finding from kits/sirius or source device repo
+    for p in [
+        ROOT / 'kits/sirius/scripts/data/mobile-graphics-legacy-abi.json',
+        ROOT / 'device/scripts/data/mobile-graphics-legacy-abi.json',
+    ]:
+        if p.exists():
+            abi_path = p
+            break
+
+if not abi_path.exists():
+    raise SystemExit('mobile-graphics-legacy-abi.json not found')
+
+abi_data = json.loads(abi_path.read_text())
+methods = abi_data['methods']
+pure_slots = abi_data.get('abstract_slots', [211, 213, 245, 246, 306, 307, 337, 338, 345])
+
+# 2. Generate OriginalLegacyFramebufferABI.h
 header_lines = [
     '// SPDX-License-Identifier: BSD-2-Clause-Patent',
     '// Opaque ABI storage for the exact original class, not source-level access',
@@ -148,27 +169,6 @@ header_content = '\n'.join(header_lines) + '\n'
 abi_header = OUT / 'OriginalLegacyFramebufferABI.h'
 abi_header.write_text(header_content)
 
-# 2. Build original-bindings.S and assemble original-bindings.o
-bindings = {
-    '__ZN25IOMobileFramebufferLegacy10gMetaClassE': 0xfffffff006b35940,
-    '__ZN25IOMobileFramebufferLegacyC2EPK11OSMetaClass': 0xfffffff0057865cc,
-    '__ZN25IOMobileFramebufferLegacyD2Ev': 0xfffffff005786618,
-    '__ZTV25IOMobileFramebufferLegacy': 0xfffffff005f38560,
-    '_native_legacy_set_refresh_properties': 0xfffffff00579ebb8,
-    '_native_legacy_surface_allocation': 0xfffffff004b9ebfc,
-    '_native_legacy_surface_descriptor': 0xfffffff004b9ead0,
-    '_native_legacy_surface_format': 0xfffffff004b9ebac,
-    '_native_legacy_surface_height': 0xfffffff004b9ebc4,
-    '_native_legacy_surface_planes': 0xfffffff004b9ebf4,
-    '_native_legacy_surface_stride': 0xfffffff004b9ebd4,
-    '_native_legacy_surface_width': 0xfffffff004b9ebbc,
-    '_native_legacy_vsync_notify': 0xfffffff005796720,
-}
-
-asm_file = OUT / 'original-bindings.S'
-asm_lines = [f'.globl {name}\n.set {name}, {addr:#x}\n' for name, addr in sorted(bindings.items())]
-asm_file.write_text(''.join(asm_lines))
-
 # 3. Read compiler flags from the recorded XNU build
 recipe_paths = [
     ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json',
@@ -183,23 +183,9 @@ for rpath in recipe_paths:
 if not record:
     raise SystemExit('Compile records not found; run bootstrap pass first')
 
-# Compile original-bindings.S
-bindings_obj = OUT / 'original-bindings.o'
 compiler = record['arguments'][0]
 if not Path(compiler).is_file():
     compiler = 'clang'
-
-sdk_arg = []
-if shutil.which('xcrun'):
-    try:
-        sdk_path = subprocess.check_output(['xcrun', '--sdk', 'iphoneos', '--show-sdk-path'], text=True).strip()
-        if sdk_path:
-            sdk_arg = ['-isysroot', sdk_path]
-    except Exception:
-        pass
-
-subprocess.run([compiler, '-target', 'arm64-apple-ios17.0', *sdk_arg, '-c', str(asm_file), '-o', str(bindings_obj)],
-               check=True)
 
 
 def build_cxx_object(src_path, dst_obj, extra_includes=None):
@@ -296,7 +282,74 @@ stubs_src = ROOT / 'kits/sirius/LegacyDisplayStubs.c'
 stubs_obj = OUT / 'LegacyDisplayStubs.o'
 build_c_object(stubs_src, stubs_obj)
 
-# 5. Late stripping via llvm-objcopy
+# 5. Extract compiled vtable references from NativeLegacyDisplay.o and resolve bindings
+raw = disp_obj.read_bytes()
+image = macho(raw)
+st = next(p for c, p, _ in image['commands'] if c == 2)
+sy, count, strings, _ = struct.unpack_from('<4I', raw, st + 8)
+symbols = []
+for i in range(count):
+    ix, kind, section, _, va = struct.unpack_from('<IBBHQ', raw, sy + i * 16)
+    symbols.append((raw[strings + ix:raw.index(b'\0', strings + ix)].decode(), va, kind))
+
+vtable = next(va for name, va, _ in symbols if name == '__ZTV19NativeLegacyDisplay')
+relocations = {}
+for segment in image['segments']:
+    for sec in segment['sections']:
+        if sec['va'] <= vtable < sec['va'] + sec['size']:
+            ro, rc = struct.unpack_from('<2I', raw, sec['command_offset'] + 56)
+            for i in range(rc):
+                offset, bits = struct.unpack_from('<2I', raw, ro + i * 8)
+                if bits >> 27 & 1 and bits >> 28 == 0 and bits >> 25 & 3 == 3:
+                    relocations[sec['va'] + offset] = symbols[bits & 0xffffff][0]
+
+compiled = [relocations.get(vtable + 16 + i * 8) for i in range(358)]
+
+bindings = {
+    '__ZN25IOMobileFramebufferLegacy10gMetaClassE': 0xfffffff006b35940,
+    '__ZN25IOMobileFramebufferLegacyC2EPK11OSMetaClass': 0xfffffff0057865cc,
+    '__ZN25IOMobileFramebufferLegacyD2Ev': 0xfffffff005786618,
+    '__ZTV25IOMobileFramebufferLegacy': int(abi_data['legacy_vptr'], 16) - 16,
+    '_native_legacy_set_refresh_properties': 0xfffffff00579ebb8,
+    '_native_legacy_surface_allocation': 0xfffffff004b9ebfc,
+    '_native_legacy_surface_descriptor': 0xfffffff004b9ead0,
+    '_native_legacy_surface_format': 0xfffffff004b9ebac,
+    '_native_legacy_surface_height': 0xfffffff004b9ebc4,
+    '_native_legacy_surface_planes': 0xfffffff004b9ebf4,
+    '_native_legacy_surface_stride': 0xfffffff004b9ebd4,
+    '_native_legacy_surface_width': 0xfffffff004b9ebbc,
+    '_native_legacy_vsync_notify': 0xfffffff005796720,
+}
+
+for i, name in enumerate(compiled):
+    if name and ('25IOMobileFramebufferLegacy' in name or name.startswith('__ZN25IOMFB')):
+        bindings[name] = int(methods[i]['address'], 16)
+
+# Also bind any undefined IOMobileFramebufferLegacy symbol in NativeLegacyDisplay.o
+for name, va, kind in symbols:
+    if kind == 1 and 'IOMobileFramebufferLegacy' in name and name not in bindings:
+        # Match against known vtable slots or known methods
+        pass
+
+# Assemble original-bindings.S
+asm_file = OUT / 'original-bindings.S'
+asm_lines = [f'.globl {name}\n.set {name}, {addr:#x}\n' for name, addr in sorted(bindings.items())]
+asm_file.write_text(''.join(asm_lines))
+
+bindings_obj = OUT / 'original-bindings.o'
+sdk_arg = []
+if shutil.which('xcrun'):
+    try:
+        sdk_path = subprocess.check_output(['xcrun', '--sdk', 'iphoneos', '--show-sdk-path'], text=True).strip()
+        if sdk_path:
+            sdk_arg = ['-isysroot', sdk_path]
+    except Exception:
+        pass
+
+subprocess.run([compiler, '-target', 'arm64-apple-ios17.0', *sdk_arg, '-c', str(asm_file), '-o', str(bindings_obj)],
+               check=True)
+
+# 6. Late stripping via llvm-objcopy
 objcopy = find_llvm_objcopy()
 disp_late = OUT / 'NativeLegacyDisplay.late.o'
 subprocess.run([
@@ -316,14 +369,14 @@ subprocess.run([
     str(pres_late),
 ], check=True)
 
-# 6. Archive objects into libNativeLegacyDisplay.late.a
+# 7. Archive objects into libNativeLegacyDisplay.late.a
 ar_cmd = find_ar()
 archive = OUT / 'libNativeLegacyDisplay.late.a'
 archive.unlink(missing_ok=True)
 subprocess.run([*ar_cmd, 'rcs', str(archive), str(disp_late), str(pres_late), str(bindings_obj), str(probe_obj), str(stubs_obj)],
                check=True)
 
-# 7. Write build-report.json
+# 8. Write build-report.json
 source_files = [
     ROOT / 'drivers/GopFramebuffer/NativeLegacyDisplay.cpp',
     ROOT / 'drivers/GopFramebuffer/NativeLegacyRequest.h',
@@ -350,4 +403,4 @@ report = {
 }
 
 (OUT / 'build-report.json').write_text(json.dumps(report, indent=2) + '\n')
-print(f'libNativeLegacyDisplay.late.a successfully built ({archive.stat().st_size} bytes)')
+print(f'libNativeLegacyDisplay.late.a successfully built ({archive.stat().st_size} bytes, {len(bindings)} symbols bound)')

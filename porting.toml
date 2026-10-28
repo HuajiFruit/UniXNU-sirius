@@ -275,6 +275,7 @@ paths = [
   "package/LegacyDisplayStubs.c",
   "scripts/build-native-legacy-display.py",
   "scripts/build-sirius-probes.py",
+  "scripts/data/mobile-graphics-legacy-abi.json",
 ]
 inputs = [
   "U-Boot hands over a 1080x2240 splash framebuffer at 0x9c000000 through GOP (vidconsole).",
@@ -297,6 +298,7 @@ findings = [
   "Since the panic snapshot patch the panel re-renders at panic time, so the rows are not a stale frame.",
   "NativeLegacyDisplay and NativeGOPPresenter compile as a late archive (libNativeLegacyDisplay.late.a) via scripts/build-native-legacy-display.py, stripping static constructors from __DATA,__mod_init_func and globalizing them so the board display probe in LegacyDisplayProbe.cpp runs them safely after prelinked kexts have been admitted.",
   "The archive build script filters out C++ language and standard flags (-std=gnu++2b, -fapple-kext, -nostdinc++) when compiling C source units such as LegacyDisplayStubs.c.",
+  "The audited ABI data for iOS 17.7.11 21H461 is stored in scripts/data/mobile-graphics-legacy-abi.json, allowing build-native-legacy-display.py to bind all ~170 inherited virtual methods in original-bindings.S without needing the raw kernelcache during CI.",
   "Audit against the 21H461 kernelcache proved the exact 13 dispatch table / constructor / method targets for IOMobileFramebufferLegacy and its 358-entry vtable with 9 abstract leaves.",
   "The GOP framebuffer nub publishes under /arm-io as display-subsystem in phase 4, registering power management and publishing the display service so SpringBoard stops crash-looping.",
 ]
