@@ -1161,6 +1161,21 @@ native_ram_block_volume_seed(const char *uuid, dev_t *device, char *path, size_t
 	return 1;
 }
 
+/* With the seed path compiled in, kern_exec.c's boot-time GPU addon install also asks the RAM block
+ * provider for /chosen/memory-map/GpuAddon. Its declaration is weak, but the static kernel link
+ * still needs a definition: this board's payload carries no addon, so there is none to report. */
+extern "C" int
+native_ram_block_gpu_addon(const uint8_t **data, uint64_t *bytes)
+{
+	if (data != nullptr) {
+		*data = nullptr;
+	}
+	if (bytes != nullptr) {
+		*bytes = 0;
+	}
+	return 0;
+}
+
 /* Entry point of bsd_init (patches/xnu/sirius-usb-console.patch). No personality is installed:
  * the board owns the controller, so the probe creates and starts the driver once, the way the
  * PMGR nub of this port is started. It runs after the console starts, so the numbered steps are
