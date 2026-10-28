@@ -1,0 +1,26 @@
+# Crash records from the live diagnostics panel, symbolized against the iPadOS 17.7.11 21H461 arm64 shared cache
+# (044-76034-038.dmg of iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw; cache files read with 7-Zip 26.00, the three LZBITMAP-compressed
+# ones through apfs-fuse; addresses looked up with blacktop ipsw 3.1.739 `ipsw dyld a2s`, unslid = recorded - slide).
+#
+# iconservicesagent: kernel 130bf97 / payload 216ef03 (commit fb12af4), panel at t=317 s, two identical records
+# CRASH p229 iconservicesagent sig11 PC0 LR1a3b32ac4 E82000005 F0 +c438000 bt 1a3b32e60 1a39(cut) 1af60fb88 19b9eecc0 19b9c00e4 1af60fb5c 1af5be9c0 1af5bd5c0 1df32f168 1b96d14a4
+PC  0x0          instruction abort at address 0 (ESR 0x82000005, FAR 0): a call through a null function pointer
+LR  0x1976faac4  CoreImage       CI::GLContext::init() + 220
+bt  0x1976fae60  CoreImage       CI::GLContext::GLContext(ShareContextInfo, CGColorSpace*, CGColorSpace*, ...)
+bt  0x1a31d7b88  CoreUI          __38+[CUIShapeEffectStack sharedCIContext]_block_invoke + 40
+bt  0x18f5b6cc0  libdispatch     _dispatch_client_callout + 16
+bt  0x18f5880e4  libdispatch     _dispatch_once_callout + 28
+bt  0x1a31d7b5c  CoreUI          +[CUIShapeEffectStack sharedCIContext] + 60
+bt  0x1a31869c0  CoreUI          -[_CUIGraphicVariantVectorGlyph _createGraphicVariantImageAtScale:...]
+bt  0x1a31855c0  CoreUI          -[_CUIGraphicVariantVectorGlyph rasterizeImageUsingScaleFactor:...]
+bt  0x1d2ef7168  IconFoundation  -[IFSymbol imageForGraphicSymbolDescriptor:] + 812
+bt  0x1ad2994a4  IconServices    -[ISGraphicSymbolResource imageForSize:scale:] + 228
+#
+# liveactivitiesd: kernel 8f831f8 / payload 51c18b0 (commit 076f63c), panel at t=1470 s
+# CRASH p231 liveactivitiesd sig5 PC1ca09a4f8 LR1ca09a4cc Ef2000001 F0 +87a4000 bt 1ca0800ec (cut)0800c0 1ca1edec0 1ca1e0024 1005d0fc4 1b1c02228 0
+PC  0x1c18f64f8  SessionSyncEngine  func_1c18f6274 + 644 (brk: ESR 0xf2000001, a Swift runtime trap)
+LR  0x1c18f64cc  SessionSyncEngine  func_1c18f6274 + 600
+bt  0x1c18dc0ec  SessionSyncEngine  func_1c18dc0c4 + 40
+bt  0x1c1a49ec0  SessionCore        func_1c1a49dcc + 244
+bt  0x1c1a3c024  SessionCore        SessionCore.Daemon.workloop(OS_dispatch_queue) ...
+bt  0x1a945e228  dyld               start + 1520
