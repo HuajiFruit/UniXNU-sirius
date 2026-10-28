@@ -15,3 +15,4 @@ sirius-trust-cache-guard.patch
 sirius-skip-exec-policy.patch
 sirius-trust-cache-init.patch
 sirius-post-exec-trace.patch
+sirius-owner-data-bringup.patch

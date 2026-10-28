@@ -129,6 +129,11 @@ chip_id = "8011"
 # The OS volume of the 21H461 image set, so /chosen/root-matching selects the APFS volume the
 # driver's OS window carries. The same value qualifies every device record of this OS profile.
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
+# The kernel's memory: DarwinBoot gives XNU one contiguous window of this size (256 MiB without
+# it). The Data seed is held in that window and userland needs room, so 1 GiB, which also fits
+# the 4 GiB unit. The eMMC's 32-bit ADMA2 needs the window's start below 4 GiB; the driver refuses
+# a buffer above it rather than truncate the address.
+owned_memory_size = "0x40000000"
 
 # The Apple device-tree properties the OS profile does not already supply. Its [adt] tables
 # write /chosen, /product and the iPad7,1 identity (model iPad7,1, target-type J120); the board

@@ -614,7 +614,9 @@ sdhci_read_adma2(uint32_t command_index, uint32_t argument, uint8_t *out)
 {
 	vm_offset_t buf_pa = kvtophys((vm_offset_t)sdma_buffer);
 	vm_offset_t raw_pa = kvtophys((vm_offset_t)adma_desc);
-	if (buf_pa == 0 || raw_pa == 0) {
+	/* 32-bit ADMA2 carries 32-bit addresses: a kernel window above 4 GiB must fail here, not read
+	 * into a truncated address. */
+	if (buf_pa == 0 || raw_pa == 0 || (buf_pa >> 32) != 0 || ((raw_pa + 127u) >> 32) != 0) {
 		return -1;
 	}
 	/* Align the descriptor table physically, not just virtually. */

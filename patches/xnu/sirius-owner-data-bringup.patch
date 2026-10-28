@@ -1,0 +1,7 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7174,3 +7174,3 @@
+ #if defined(XNU_OWNER_DATA_MOUNT) && XNU_OWNER_DATA_MOUNT
+-#if !defined(XNU_OWNER_BOOT_MANIFEST) || !XNU_OWNER_BOOT_MANIFEST
++#if (!defined(XNU_OWNER_BOOT_MANIFEST) || !XNU_OWNER_BOOT_MANIFEST) && !(defined(XNU_BRINGUP_OWNER_CACHE) && XNU_BRINGUP_OWNER_CACHE)
+ #error Scratch Data mounting requires the authenticated original OS startup path
