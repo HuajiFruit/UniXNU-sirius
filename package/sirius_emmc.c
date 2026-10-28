@@ -1310,6 +1310,7 @@ static uint8_t emmc_run_table[1024] __attribute__((aligned(1024)));
 static uint8_t emmc_reference[EMMC_CHECK_BLOCKS * 512u];
 static uint32_t emmc_rca;
 static bool emmc_multi;
+static bool emmc_cache_on;
 static uint16_t emmc_last_eis;
 /* EIS bits a known-good transfer already leaves set; they are not treated as errors. */
 static uint16_t emmc_eis_baseline;
@@ -1358,12 +1359,33 @@ emmc_run_walk(unsigned bytes, uint8_t *table)
 	return entries;
 }
 
-/* CMD18 (READ_MULTIPLE_BLOCK) with Auto-CMD12 into emmc_run_buffer. Quiet: the caller decides
+/* Until a write has been programmed the card stays busy (programming state 7); the next command
+ * has to wait for READY_FOR_DATA in the transfer state (CMD13). */
+static int
+emmc_wait_programmed(void)
+{
+	uint32_t status[4] = { 0, 0, 0, 0 };
+	for (unsigned waited = 0; waited < 50000; waited++) {
+		if (sdhci_command_capture((uint16_t)((13u << 8) | SDHCI_CMD_RESP_48 | SDHCI_CMD_CRC_CHECK |
+		    SDHCI_CMD_INDEX_CHECK), emmc_rca << 16, status) == 0 && (status[0] & (1u << 8)) != 0 &&
+		    ((status[0] >> 9) & 0xfu) == 4u) {
+			/* OUT_OF_RANGE, ADDRESS_MISALIGN, WP_VIOLATION, CARD_ECC_FAILED, CC_ERROR, ERROR:
+			 * the bits that mean the write itself failed. ILLEGAL_COMMAND is left out, as the
+			 * abort emmc_recover() sends to an idle card sets it harmlessly. */
+			return (status[0] & 0xc4380000u) == 0 ? 0 : -1;
+		}
+		spin_us(100);
+	}
+	return -1;
+}
+
+/* One data command on emmc_run_buffer: CMD18/CMD25 with Auto-CMD12 for a run, CMD17/CMD24 for a
+ * single block. A write's data has to be in emmc_run_buffer already. Quiet: the caller decides
  * what a failure means. */
 static int
-emmc_run_read(uint32_t lba, unsigned blocks)
+emmc_run_transfer(uint32_t lba, unsigned blocks, bool write)
 {
-	if (blocks < 2 || blocks > EMMC_RUN_BLOCKS) {
+	if (blocks == 0 || blocks > EMMC_RUN_BLOCKS) {
 		return -1;
 	}
 	vm_offset_t raw = kvtophys((vm_offset_t)emmc_run_table);
@@ -1390,25 +1412,41 @@ emmc_run_read(uint32_t lba, unsigned blocks)
 	sdhci_write32(SDHCI_ADMA_ADDRESS_HI, 0u);
 	sdhci_write16(SDHCI_BLOCK_SIZE, 512u);
 	sdhci_write16(SDHCI_BLOCK_COUNT, (uint16_t)blocks);
-	uint16_t mode = (uint16_t)(SDHCI_TM_READ | SDHCI_TM_BLOCK_COUNT_ENABLE | SDHCI_TM_DMA |
-	    SDHCI_TM_MULTI | SDHCI_TM_AUTO_CMD12);
+	uint16_t mode = (uint16_t)(SDHCI_TM_BLOCK_COUNT_ENABLE | SDHCI_TM_DMA);
+	if (!write) {
+		mode |= SDHCI_TM_READ;
+	}
+	if (blocks > 1) {
+		mode |= SDHCI_TM_MULTI | SDHCI_TM_AUTO_CMD12;
+	}
 	sdhci_write16(SDHCI_TRANSFER_MODE, mode);
 	if ((sdhci_read16(SDHCI_TRANSFER_MODE) & mode) != mode) {
 		return -1;
 	}
-	if (sdhci_command((uint16_t)((18u << 8) | SDHCI_CMD_DATA_PRESENT | SDHCI_CMD_RESP_48 |
+	uint32_t index = write ? (blocks > 1 ? 25u : 24u) : (blocks > 1 ? 18u : 17u);
+	if (sdhci_command((uint16_t)((index << 8) | SDHCI_CMD_DATA_PRESENT | SDHCI_CMD_RESP_48 |
 	    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), lba) != 0) {
 		return -1;
 	}
-	/* Generous enough for the slowest clock this may run at (400 kHz, 1.3 ms per block). */
+	/* Generous enough for the slowest clock this may run at (400 kHz, 1.3 ms per block), and for
+	 * a write's busy signalling after the last block. */
 	int done = sdhci_wait(SDHCI_INT_TRANSFER_COMPLETE, 200000u + 20000u * blocks);
 	emmc_last_eis = sdhci_read16(SDHCI_ERR_INT_STATUS);
 	sdhci_write32(SDHCI_INT_STATUS, 0xffffffffu);
 	if (done <= 0 || (emmc_last_eis & SDHCI_EIS_DATA_ERRORS & (uint16_t)~emmc_eis_baseline) != 0) {
 		return -1;
 	}
+	if (write) {
+		return emmc_wait_programmed();
+	}
 	(void)emmc_run_walk(blocks * 512u, 0);
 	return 0;
+}
+
+static int
+emmc_run_read(uint32_t lba, unsigned blocks)
+{
+	return blocks < 2 ? -1 : emmc_run_transfer(lba, blocks, false);
 }
 
 /* After a failed transfer: reset the command and data circuits and stop the card if it is still
@@ -1514,6 +1552,7 @@ emmc_speed_up(void)
 	unsigned timing = 0;
 	if (sdhci_read_adma2(8u, 0u, ext) == 0) {
 		timing = ext[185];
+		emmc_cache_on = (ext[33] & 1u) != 0;     /* CACHE_CTRL: writes may sit in the card's cache */
 		ring_puts("EMMC ext_csd rev=");
 		ring_dec(ext[192]);
 		ring_puts(" width=");
@@ -1522,6 +1561,8 @@ emmc_speed_up(void)
 		ring_dec(ext[185]);
 		ring_puts(" type=");
 		ring_hex(ext[196], 2);
+		ring_puts(" cache=");
+		ring_dec(ext[33] & 1u);
 		ring_puts(" hc=");
 		ring_hex(sdhci_read8(SDHCI_HOST_CONTROL), 2);
 		ring_puts(" hc2=");
@@ -1714,4 +1755,89 @@ sirius_emmc_read_blocks(uint64_t lba, unsigned count, void *buffer)
 		}
 	}
 	return 0;
+}
+
+/* ------------------------------------------------------------------------- *
+ * Writes, for the persistent Data volume only. Two fences: the window the block driver opens once
+ * (the Data container behind the root image), and, whatever that window says, the userdata
+ * partition minus its first MiB (the SHNGROOT manifest). Nothing else on this card is writable.
+ * ------------------------------------------------------------------------- */
+
+#define EMMC_USERDATA_FIRST_LBA 17301504ull     /* board.toml [userdata] first_lba */
+#define EMMC_USERDATA_LAST_LBA 122142686ull     /* board.toml [userdata] last_lba */
+
+static uint64_t emmc_write_first, emmc_write_end;      /* [first, end); end 0 = no window */
+volatile uint32_t sirius_emmc_writes;
+volatile uint32_t sirius_emmc_write_failures;
+
+/* Opens the write window once; a later call cannot move or widen it. */
+int
+sirius_emmc_set_write_window(uint64_t first, uint64_t blocks)
+{
+	if (emmc_write_end != 0 || blocks == 0 || first < EMMC_USERDATA_FIRST_LBA + 2048u ||
+	    first + blocks - 1u > EMMC_USERDATA_LAST_LBA) {
+		return -1;
+	}
+	emmc_write_first = first;
+	emmc_write_end = first + blocks;
+	ring_puts("EMMC write window lba=");
+	ring_dec((uint32_t)first);
+	ring_puts(" blocks=");
+	ring_dec((uint32_t)blocks);
+	ring_puts(" cache=");
+	ring_dec(emmc_cache_on ? 1u : 0u);
+	ring_puts("\r\n");
+	return 0;
+}
+
+int
+sirius_emmc_write_blocks(uint64_t lba, unsigned count, const void *buffer)
+{
+	if (!sirius_emmc_ready || count == 0 || count > EMMC_RUN_BLOCKS || emmc_write_end == 0 ||
+	    lba < emmc_write_first || lba + count > emmc_write_end ||
+	    lba < EMMC_USERDATA_FIRST_LBA + 2048u || lba + count - 1u > EMMC_USERDATA_LAST_LBA) {
+		sirius_emmc_write_failures++;
+		return -1;
+	}
+	const uint8_t *in = (const uint8_t *)buffer;
+	sirius_emmc_writes++;
+	if (emmc_multi && count > 1) {
+		__builtin_memcpy(emmc_run_buffer, in, 512u * count);
+		if (emmc_run_transfer((uint32_t)lba, count, true) == 0) {
+			return 0;
+		}
+		emmc_multi = false;
+		ring_puts("EMMC write run failed lba=");
+		ring_hex((uint32_t)lba, 8);
+		ring_puts(" eis=");
+		ring_hex(emmc_last_eis, 4);
+		ring_puts(", single blocks from now on\r\n");
+		emmc_recover();
+	}
+	for (unsigned i = 0; i < count; i++) {
+		__builtin_memcpy(emmc_run_buffer, in + 512u * i, 512u);
+		if (emmc_run_transfer((uint32_t)lba + i, 1u, true) != 0) {
+			emmc_recover();
+			sirius_emmc_write_failures++;
+			return -1;
+		}
+	}
+	return 0;
+}
+
+/* Makes written data durable: with the card's cache on, CMD6 FLUSH_CACHE (EXT_CSD 32 = 1). */
+int
+sirius_emmc_flush(void)
+{
+	if (!sirius_emmc_ready || !emmc_cache_on) {
+		return 0;
+	}
+	if (sdhci_command((uint16_t)((6u << 8) | SDHCI_CMD_RESP_48_BUSY | SDHCI_CMD_CRC_CHECK |
+	    SDHCI_CMD_INDEX_CHECK), (3u << 24) | (32u << 16) | (1u << 8)) != 0) {
+		emmc_recover();
+		return -1;
+	}
+	(void)sdhci_wait(SDHCI_INT_TRANSFER_COMPLETE, 2000000);
+	sdhci_write32(SDHCI_INT_STATUS, 0xffffffffu);
+	return emmc_wait_programmed();
 }

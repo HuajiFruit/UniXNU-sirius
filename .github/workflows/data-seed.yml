@@ -3,9 +3,11 @@ name: Data seed
 # The Data volume's seed for the payload (unixnu build payload --data-ramdisk), built on a hosted macOS runner because
 # every step needs hdiutil/diskutil: UniXNU's prepare-owner-data-fixture.py makes a 32 MiB APFS volume holding the IPSW
 # OS volume's private/var, and the container is then grown to size_mib (32 MiB ran out of space as soon as userland
-# started). The raw image is the seed: NativeEmmc serves it from RAM as the Data volume, so it takes that much of the
-# kernel's memory window (no packing, no persistence, as the eMMC driver has no write path). The new volume's UUID is
-# printed: CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/sirius_defconfig must match it.
+# started). The default, 8 GiB, is the persistent Data container: scripts/make-data-window-image.py writes it into
+# userdata behind the root image, and NativeEmmc serves it read-write with sirius-data-write=1. A small size (256)
+# makes a RAM seed for --data-ramdisk instead, held in the kernel's memory window and lost at power off. The new
+# volume's UUID is printed; NativeEmmc takes the volume on its Data window whatever the UUID, and
+# CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/sirius_defconfig records it.
 # The seed holds files from the IPSW, so it is uploaded encrypted with the ARTIFACT_PASSPHRASE secret:
 #   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in data-seed.tar.gz.enc -pass file:KEYFILE | tar xz
 
@@ -17,9 +19,9 @@ on:
         required: true
         default: main
       size_mib:
-        description: Data container size in MiB (held in RAM, inside the 1 GiB kernel window)
+        description: Data container size in MiB (8192 persistent in userdata; 256 for a RAM seed)
         required: true
-        default: "256"
+        default: "8192"
 
 permissions:
   contents: read

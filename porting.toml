@@ -50,6 +50,7 @@ findings = [
   "With the Data volume mounted, launchd's mount -P 1 still exits 66: apfs logs 'DT_get_fstab_entries: failed to get filesystem entry at: /filesystems/fstab', and the uke port traced the fatal error to the missing /chosen/boot-manifest-hash. [adt.chosen.bytes] boot-manifest-hash now carries uke's explicit bring-up boot-set identity (SHA-384 of 'UkeBringup.BootSet.v1\\0'), as asteroids does. On the phone mount-phase-1 and mount-phase-2 then pass and launchd reports 'Early boot complete. Continuing system boot.'",
   "Past early boot the 32 MiB Data volume runs out of space (ENOSPC) and watchdogd traps (brk #1), which panics the boot. kernel_args now pass sheng-disable-watchdogd=1 and sheng-lite=1 to package/BootWatchdogPolicy.c (already linked and called after the Data mount), which disables watchdogd and the network/iCloud/photo daemons through launchd's disabled.plist, and the seed workflow grows the container to size_mib (256 MiB, held in RAM inside the 1 GiB window); the volume UUID stays across the grow. Not yet booted.",
   "Each seed workflow run formats a new volume, so the 256 MiB seed (run 40621149780, owner-data.cdr 48a10f78...) has UUID E06A21C1-6686-49B8-B242-ED82B00F4AF8, which the defconfig now names; with the seed inside, the payload files take 306 MiB, so [payload] size_mib is 512 (the vendor partition holds 3 GiB).",
+  "Persistent Data configuration: kernel_args now passes sirius-data-write=1 so NativeEmmc publishes the persistent Data container behind the root image in userdata read-write; [payload] size_mib is reset to 256 MiB because the Data container no longer travels in the vendor payload volume; .github/workflows/data-seed.yml default container size is updated to 8192 MiB.",
 ]
 completion = [
   "status --json resolves the ARM64, sdm710, iPadOS and device layers, prints a non-empty patch order and shows the device package as kits/sirius.",
@@ -183,7 +184,7 @@ evidence = [
 id = "storage"
 status = "device-verified"
 components = []
-paths = ["docs/HANDOFF.zh-CN.md", "package/sirius_emmc.c", "package/NativeEmmc.cpp", "scripts/derive-storage-bindings.py"]
+paths = ["docs/HANDOFF.zh-CN.md", "package/sirius_emmc.c", "package/NativeEmmc.cpp", "scripts/derive-storage-bindings.py", "scripts/make-data-window-image.py"]
 inputs = [
   "The reference unit is eMMC, not UFS: the UFS transport and its sheng integration points do not apply to this board.",
   "The original kernelcache is the only source of IOStorageFamily's addresses; its kext images carry no symbol table, so they are derived from the dispatch table itself.",
@@ -224,6 +225,9 @@ findings = [
   "Once userland read in parallel, APFS reported data hash mismatches on the sealed SystemOS volume (disk6s1). The block driver drains requests on their callers' threads through one shared bounce buffer, and released the transport lock between the read into it and the copy out of it, so a second reader could refill it first and the first request received the other one's blocks. The copy now happens under the lock (the request's memory is wired for the I/O, so it cannot fault back into the driver). Not yet booted.",
   "native_ram_block_volume_seed() takes the one APFS volume on the RAM window instead of looking the kernel's UUID up, since a Data seed can only be there and every seed build has a new UUID; a differing UUID is reported, not refused, so a new seed no longer needs a new kernel.",
   "With the copy under the lock, a 256 MiB seed, sheng-disable-watchdogd=1 and sheng-lite=1, the boot runs without a panic for the whole capture (heartbeat at 336 s): no data hash mismatch is reported, the watchdog policy disables watchdogd, early boot completes at 170 s and only liveactivitiesd crashes. The Data volume then fills about a minute after early boot; containermanagerd (first-boot data containers), launchd, analyticsd and APFS itself hit ENOSPC.",
+  "Persistent Data write path and fences: package/sirius_emmc.c implements block writes via CMD24/CMD25 with Auto-CMD12 over ADMA2, polls CMD13 until the card exits programming state with error checking, and issues CMD6 FLUSH_CACHE when EXT_CSD CACHE_CTRL is active. Writes are strictly fenced twice: once to the single window opened by sirius_emmc_set_write_window(), and globally to the userdata partition boundary minus its first MiB (protecting the SHNGROOT manifest).",
+  "Persistent Data container window: package/NativeEmmc.cpp implements prepareDataWindow(), locating the first MiB boundary behind the root image (userdata LBA 35627008) and verifying the NXSB APFS superblock before publishing a read-write eMMC block device when sirius-data-write=1. Writes are drained through the software queue keeping the bounce buffer under the transport lock in both directions, doSynchronizeCache flushes the eMMC write cache, and native_ram_block_volume_seed() resolves the Data volume on whichever window exists.",
+  "scripts/make-data-window-image.py converts the grown 8 GiB APFS Data container into a fastboot sparse image for userdata: a DONT_CARE chunk leaves the root image untouched, RAW chunks write nonzero blocks, and FILL chunks write zero blocks so free space reads as zero on device.",
 ]
 completion = [
   "The eMMC registers, GPT and the SHNGROOT windows are correct; APFS mounts the OS volume, bsd_init completes, init execs /sbin/launchd and execve returns 0.",
@@ -520,6 +524,7 @@ findings = [
   "NativeEmmc reports the Data seed as 'NEMMC data seed at/bytes' when it publishes the RAM window and 'NEMMC data volume /dev/...' when the owner Data mount asks for it, or 'NEMMC data volume not found on the seed'.",
   "When the seed's volume UUID differs from CONFIG_XNU_OWNER_DATA_VOLUME_UUID the driver logs 'NEMMC data volume is <seed UUID>, the kernel names <configured UUID>' and mounts it anyway.",
   "capture-usb-console.py --duration counts from the script's start: counted from the port, which a boot brings up after about a minute, a 280 s capture ran about 5.6 minutes.",
+  "Persistent Data diagnostics: the driver logs 'EMMC write window lba=... blocks=... cache=...' on window configuration, reports EXT_CSD CACHE_CTRL in the probe, logs fallback to single-block writes if a multi-block write command fails, logs 'NEMMC data window lba=... blocks=...' when the persistent container is discovered, logs 'NEMMC data volume (eMMC) ...' or 'NEMMC data volume (RAM) ...' when resolved, and logs 'NEMMC write failed lba ...' on write errors.",
 ]
 completion = [
   "Each claimed milestone has a reproducible command, a matching source and image revision and an accessible result.",
