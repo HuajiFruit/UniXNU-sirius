@@ -82,8 +82,9 @@ CONFIG_XNU_OWNER_UNION_SYSTEMOS=y
 # workflow) at /private/var before launchd starts. package/NativeEmmc.cpp serves the seed from RAM
 # and answers native_ram_block_volume_seed() (SIRIUS_DATA_SEED, instead of RamBlock); the bring-up
 # mode builds it without the boot manifest (patches/xnu/sirius-owner-data-bringup.patch). The UUID
-# is the seed's volume (Data seed workflow run 40615426205, owner-data-32.cdr 5679d2cf...); a new
-# seed needs its new UUID here.
+# is the current seed's volume (Data seed workflow run 40621149780, 256 MiB owner-data.cdr
+# 48a10f78...). Every seed build formats a new volume; NativeEmmc takes the volume on its RAM
+# window either way and reports a differing UUID, so keep this in step with the seed in use.
 CONFIG_XNU_OWNER_DATA_MOUNT=y
 CONFIG_XNU_SIRIUS_DATA_SEED=y
-CONFIG_XNU_OWNER_DATA_VOLUME_UUID="EB6CBBA0-ECB9-4556-A483-4B60D54D4306"
+CONFIG_XNU_OWNER_DATA_VOLUME_UUID="E06A21C1-6686-49B8-B242-ED82B00F4AF8"

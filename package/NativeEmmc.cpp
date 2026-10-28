@@ -1049,27 +1049,48 @@ native_verified_block_root_authorized(dev_t device)
 	return nemmc_allow_unverified();
 }
 
-/* The IOMedia whose UUID is uuid, once APFS has published it: its BSD device and node and, through
- * ram, the RAM window it sits on (nullptr for an eMMC window). APFS publishes volume media after
- * the root mounts, and launchd starts right after that, so this waits up to ten seconds. */
+/* The RAM window a media object sits on, or nullptr for one on an eMMC window. */
+static NativeEmmcBlock *
+nemmc_ram_window_of(IOService *media)
+{
+	unsigned depth = 0;
+	for (IOService *provider = media; provider != nullptr && depth++ < 64; provider = provider->getProvider()) {
+		NativeEmmcBlock *block = OSDynamicCast(NativeEmmcBlock, provider);
+		if (block != nullptr) {
+			return block->ram() != nullptr ? block : nullptr;
+		}
+	}
+	return nullptr;
+}
+
+/* The IOMedia whose UUID is uuid or, with uuid nullptr, the one APFS volume on the RAM window (a
+ * slice with a UUID), once APFS has published it: its BSD device and node, through ram the RAM
+ * window it sits on (nullptr for an eMMC window), and through volume its UUID. APFS publishes
+ * volume media after the root mounts, and launchd starts right after that, so this waits up to ten
+ * seconds. */
 static bool
-nemmc_find_volume(const char *uuid, dev_t *device, char *path, size_t size, NativeEmmcBlock **ram)
+nemmc_find_volume(const char *uuid, dev_t *device, char *path, size_t size, NativeEmmcBlock **ram,
+    char *volume = nullptr)
 {
 	*device = NODEV;
 	path[0] = '\0';
 	*ram = nullptr;
 	for (unsigned attempt = 0; attempt < 100; attempt++) {
 		OSDictionary *matching = IOService::serviceMatching("IOMedia");
-		OSDictionary *properties = OSDictionary::withCapacity(1);
-		OSString *wanted = OSString::withCString(uuid);
-		bool ready = matching != nullptr && properties != nullptr && wanted != nullptr &&
-		    properties->setObject("UUID", wanted) && matching->setObject("IOPropertyMatch", properties);
-		OSSafeReleaseNULL(wanted);
-		OSSafeReleaseNULL(properties);
+		bool ready = matching != nullptr;
+		if (ready && uuid != nullptr) {
+			OSDictionary *properties = OSDictionary::withCapacity(1);
+			OSString *wanted = OSString::withCString(uuid);
+			ready = properties != nullptr && wanted != nullptr && properties->setObject("UUID", wanted) &&
+			    matching->setObject("IOPropertyMatch", properties);
+			OSSafeReleaseNULL(wanted);
+			OSSafeReleaseNULL(properties);
+		}
 		OSIterator *iterator = ready ? IOService::getMatchingServices(matching) : nullptr;
 		OSSafeReleaseNULL(matching);
 		dev_t candidate = NODEV;
 		char candidatePath[64] = {};
+		char candidateVolume[37] = {};
 		NativeEmmcBlock *window = nullptr;
 		unsigned matches = 0;
 		bool found = false;
@@ -1077,6 +1098,12 @@ nemmc_find_volume(const char *uuid, dev_t *device, char *path, size_t size, Nati
 			IOService *media = OSDynamicCast(IOService, iterator->getNextObject());
 			if (media == nullptr) {
 				break;
+			}
+			OSString *identity = OSDynamicCast(OSString, media->getProperty("UUID"));
+			NativeEmmcBlock *under = nemmc_ram_window_of(media);
+			if (uuid == nullptr && (under == nullptr || identity == nullptr ||
+			    media->getProperty("Whole") == kOSBooleanTrue)) {
+				continue;
 			}
 			if (++matches != 1) {
 				found = false;
@@ -1092,16 +1119,9 @@ nemmc_find_volume(const char *uuid, dev_t *device, char *path, size_t size, Nati
 			}
 			candidate = (dev_t)makedev(major->unsigned32BitValue(), minor->unsigned32BitValue());
 			snprintf(candidatePath, sizeof(candidatePath), "/dev/%s", name->getCStringNoCopy());
-			window = nullptr;
-			unsigned depth = 0;
-			for (IOService *provider = media; provider != nullptr && depth++ < 64;
-			    provider = provider->getProvider()) {
-				NativeEmmcBlock *block = OSDynamicCast(NativeEmmcBlock, provider);
-				if (block != nullptr) {
-					window = block->ram() != nullptr ? block : nullptr;
-					break;
-				}
-			}
+			strlcpy(candidateVolume, identity != nullptr ? identity->getCStringNoCopy() : "",
+			    sizeof(candidateVolume));
+			window = under;
 			found = true;
 		}
 		OSSafeReleaseNULL(iterator);
@@ -1109,6 +1129,9 @@ nemmc_find_volume(const char *uuid, dev_t *device, char *path, size_t size, Nati
 			*device = candidate;
 			strlcpy(path, candidatePath, size);
 			*ram = window;
+			if (volume != nullptr) {
+				strlcpy(volume, candidateVolume, 37);
+			}
 			return true;
 		}
 		IOSleep(100);
@@ -1141,8 +1164,11 @@ native_verified_block_volume_device(const char *uuid, dev_t *device, char *path,
 
 /* The owner Data mount (offline-owner-systemos-mount.patch, kern_exec.c built with
  * XNU_SIRIUS_DATA_SEED) asks for the device of the Data volume and the seed behind it. RamBlock
- * provides this on other boards; here the volume has to sit on NativeEmmc's RAM window. base is
- * the seed's kernel address; the digest stays zero, as nothing on this board checks the seed. */
+ * provides this on other boards; here it is the one APFS volume on NativeEmmc's RAM window, the
+ * only place a Data seed can be. Every seed build formats a new volume with a new UUID, so a seed
+ * whose UUID differs from the kernel's (CONFIG_XNU_OWNER_DATA_VOLUME_UUID) is still taken, and the
+ * difference is reported, rather than every new seed needing a new kernel. base is the seed's
+ * kernel address; the digest stays zero, as nothing on this board checks the seed. */
 extern "C" int
 native_ram_block_volume_seed(const char *uuid, dev_t *device, char *path, size_t size, uint64_t *base,
     uint64_t *bytes, uint8_t *digest)
@@ -1155,11 +1181,19 @@ native_ram_block_volume_seed(const char *uuid, dev_t *device, char *path, size_t
 	*bytes = 0;
 	memset(digest, 0, 32);
 	NativeEmmcBlock *ram;
-	if (!nemmc_find_volume(uuid, device, path, size, &ram) || ram == nullptr) {
+	char volume[37] = {};
+	if (!nemmc_find_volume(nullptr, device, path, size, &ram, volume) || ram == nullptr) {
 		*device = NODEV;
 		path[0] = '\0';
 		emmc_log("NEMMC data volume not found on the seed\n");
 		return 0;
+	}
+	if (strcmp(volume, uuid) != 0) {
+		emmc_log("NEMMC data volume is ");
+		emmc_log(volume);
+		emmc_log(", the kernel names ");
+		emmc_log(uuid);
+		emmc_log("\n");
 	}
 	*base = (uint64_t)(uintptr_t)ram->ram();
 	*bytes = ram->blocks() * EMMC_BLOCK_SIZE;
