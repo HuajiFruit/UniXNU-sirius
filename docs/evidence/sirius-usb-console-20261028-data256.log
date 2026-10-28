@@ -1,0 +1,62 @@
+# USB console timeline (seconds after fastboot reboot, first arrival of each line), kernel 396fdab, 256 MiB Data seed
+# kernel.macho dd22531c552b5e87208268f3faf793b7acd2516961d45f44e82d3e15b9d86e8c
+# payload    f93d3f9b72b45bb4a4248bd7637e0e8d616472eb28da2d4d5cf479c3574f36b6 (seed 48a10f78..., 268435456 bytes)
+    58.0 NEMMC data seed at 00000000a3cc1000
+    58.0 NEMMC data seed bytes 268435456
+    58.2 NEMMC data volume /dev/disk3s1
+    58.2 sheng bring-up watchdogd launch policy: 0 (hardware watchdog not implemented)
+   170.0 [System Event] [3248865107] [INFO] [Subsystem: launchd] [Event: boot] Early boot complete. Continuing system boot.
+   211.9 Process[122] crashed: liveactivitiesd. Too many corpses being created.
+   230.2 apfs_lowdisk_check_volume:285: disk3s1 sending lowdisk notification: 8192 for with apfs_lowdisk_status: 8192
+   230.5 apfs_lowdisk_check_volume:285: disk3s1 sending lowdisk notification: 8196 for with apfs_lowdisk_status: 8196
+   232.0 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 782 free_blocks 1239 xid 123
+   232.6 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 1532 free_blocks 1666 xid 146
+   310.2 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1257 xid 4305
+   310.2 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1253 xid 4305
+   310.2 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1251 xid 4305
+   310.2 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1250 xid 4305
+   310.2 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1248 xid 4305
+   310.9 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1253 xid 4429
+   310.9 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1257 xid 4483
+   310.9 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1255 xid 4483
+   310.9 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1254 xid 4483
+   310.9 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1252 xid 4483
+   311.3 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1258 xid 4566
+   311.3 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1256 xid 4591
+   311.3 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1253 xid 4591
+   311.3 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1251 xid 4591
+   311.3 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1250 xid 4591
+   311.3 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1249 xid 4591
+   311.7 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1239 xid 4734
+   311.7 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1236 xid 4734
+   311.7 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1232 xid 4734
+   312.0 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1249 xid 4793
+   312.1 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1213 xid 4882
+   312.1 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1210 xid 4882
+   312.1 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1209 xid 4882
+   312.1 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1207 xid 4882
+   312.4 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1208 xid 4972
+   312.5 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype INSERT num_blocks 119 blocks_in_txn 760 free_blocks 1188 xid 5040
+   312.5 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1179 xid 5041
+   312.5 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1201 xid 5063
+   312.5 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1198 xid 5063
+   312.5 fs_tx_leave_ext:27698: disk3s1 gettin' low on space: ttype MODVAL num_blocks 13 blocks_in_txn 760 free_blocks 1195 xid 5063
+## ENOSPC lines by process
+     65 disk3s1 kernel_task:
+     53 disk3s1 containermanagerd:
+     31 disk3s1 launchd:
+     12 disk3s1 analyticsd:
+      6 disk3s1 profiled:
+      4 disk3s1 com.apple.MobileSoftwareUpdate.:
+      2 disk3s1 osanalyticshelper:
+      2 disk3s1 lsd:
+      2 disk3s1 logd:
+      2 disk3s1 deleted:
+      2 disk3s1 cfprefsd:
+      2 disk3s1 biomed:
+      1 disk3s1 ind:
+      1 disk3s1 clipserviced:
+      1 disk3s1 assistantd:
+      1 disk3s1 ReportCrash:
+## last heartbeat
+   336.2 NEMMC alive beats/reads 0000008b0005ca57

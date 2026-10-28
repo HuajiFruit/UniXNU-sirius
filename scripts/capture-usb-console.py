@@ -151,7 +151,8 @@ def main():
     parser.add_argument('--port', default=None,
                         help='CDC-ACM device, default: the SIRIUS01 port (first /dev/ttyACM*, or its COM port on Windows)')
     parser.add_argument('--wait', type=float, default=60.0, help='seconds to wait for the port')
-    parser.add_argument('--duration', type=float, default=0.0, help='seconds to capture, 0 = until Ctrl-C')
+    parser.add_argument('--duration', type=float, default=0.0,
+                        help='seconds from the start of the script (the wait for the port included), 0 = until Ctrl-C')
     parser.add_argument('--output', default='out/sirius-usb-console.log', help='log file (bytes appended)')
     parser.add_argument('--follow', action='store_true',
                         help='keep waiting for the port after EOF or re-enumeration')
@@ -184,7 +185,9 @@ def main():
     # The driver replays its whole ring buffer as soon as the host sends any byte,
     # because otherwise the log is only handed over once, at enumeration.
     total = 0
-    end = time.time() + args.duration if args.duration else None
+    # Counted from the script's start, not from the port: a boot takes about a minute to bring the
+    # console up, and a time limit that started only then let a capture run that much longer.
+    end = started + args.duration if args.duration else None
     with open(args.output, 'ab') as log:
         try:
             next_poke = 0.0
