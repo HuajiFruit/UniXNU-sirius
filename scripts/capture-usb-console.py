@@ -159,7 +159,16 @@ def main():
                         help='stop as soon as the captured bytes contain this text (repeatable)')
     parser.add_argument('--match-window', type=float, default=4096.0,
                         help='how many trailing bytes the --match patterns are tested against')
+    parser.add_argument('--timeline', default=None,
+                        help='also write each distinct line once, prefixed with the seconds since the script '
+                             'started at which it first arrived; start the script right after the reboot')
     args = parser.parse_args()
+    started = time.time()
+    # The driver replays its whole ring on every poke, so a line arrives many times; only its first
+    # arrival says when it was written (within a poke or two once the console is up).
+    timeline = open(args.timeline, 'a', encoding='utf-8') if args.timeline else None
+    seen_lines = set()
+    partial = b''
 
     port = args.port or wait_for_port(args.wait)
     if port is None:
@@ -219,6 +228,16 @@ def main():
                         log.write(chunk)
                         log.flush()
                         total += len(chunk)
+                        if timeline is not None:
+                            lines = (partial + chunk).split(b'\n')
+                            partial = lines.pop()
+                            for line in lines:
+                                line = line.rstrip(b'\r')
+                                if line and line not in seen_lines:
+                                    seen_lines.add(line)
+                                    timeline.write(f'{time.time() - started:8.1f} '
+                                                   f'{line.decode("utf-8", "replace")}\n')
+                            timeline.flush()
                         sys.stdout.write(chunk.decode('utf-8', 'replace'))
                         sys.stdout.flush()
                         tail = (tail + chunk)[-int(args.match_window):] if args.match else b''
@@ -234,6 +253,8 @@ def main():
                     break
         except KeyboardInterrupt:
             pass
+    if timeline is not None:
+        timeline.close()
     print(f'\ncaptured {total} bytes', file=sys.stderr)
     return 0
 
