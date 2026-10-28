@@ -708,7 +708,15 @@ void boot_progress_stage(const char *text) {
   if (!started && !state.frozen) draw(now);
   release();
 }
+// sirius-spawn-log=1: one console line per exec and per exit, with the second, so a capture shows which jobs run, restart or get killed
+// while the CPU sits idle (the panel keeps only the last three failures).
+static int spawn_log=-1;
+static int spawn_logging(void) {
+  if(spawn_log<0){int v=0;PE_parse_boot_argn("sirius-spawn-log",&v,sizeof v);spawn_log=(v==1);}
+  return spawn_log;
+}
 void boot_progress_process_stage(int pid,const char *name,const char *text) {
+  if(enabled && !strcmp(text,"exec process signature accepted") && spawn_logging())printf("SPAWN %us exec %d %.24s\n",seconds(),pid,name?name:"?");
   if(!enabled || !take())return;
   char stamped[BP_COLS];unsigned now=seconds();
   if(!strncmp(text,"exec process signature",22))census_note(name,0);
@@ -719,6 +727,7 @@ void boot_progress_process_stage(int pid,const char *name,const char *text) {
 }
 void boot_progress_exit(int pid,const char *name,int status,unsigned ns,uint64_t code) {
   if(!enabled)return;
+  if(spawn_logging())printf("SPAWN %us exit %d %.24s status=%x ns=%u code=%llx\n",seconds(),pid,name?name:"?",(unsigned)status,ns,(unsigned long long)code);
   census_note(name,1);
   if(name && !strcmp(name,"xpcproxy") && pid==proc_selfpid())xpc_fail_note(status,ns,code);
   if(__atomic_exchange_n(&exit_lock,1,__ATOMIC_ACQUIRE)) {

@@ -101,6 +101,19 @@ loader = "payload"                  # not "firmware": unixnu.toml gets [[driver]
 title = "sirius first boot: XNU to console"
 dram_size = "0x17d6c0000"
 panic_screen = true
+# The OS profile's four fixups (a list here replaces the profile's), then one of this board's: without a
+# Metal device CoreImage falls back to OpenGL, whose dispatch table is empty here, and iconservicesagent
+# jumps to address 0 in CI::GLContext::init. The fifth entry replaces CoreUI's [CIContext
+# contextWithOptions:] call in +[CUIShapeEffectStack sharedCIContext] (0x1a31d7b84 unslid, a bl) with
+# mov x0, xzr: the shared context is nil, the glyph rasterizer returns no image and IconFoundation checks
+# for that (cbz x26), so a vector symbol draws empty instead of killing the agent.
+text_fixups = [
+  "dyld_shared_cache_arm64.15,421e8bc,28ad1bb0008544f9,c0035fd6008544f9",
+  "dyld_shared_cache_arm64.13,1b05bec,44008052,24008052",
+  "dyld_shared_cache_arm64.13,1b05b08,44008052,24008052",
+  "BTAudioHALPlugin,38bec,ffc300d1f44f01a9,000080d2c0035fd6",
+  "dyld_shared_cache_arm64.11,34f3b84,979701944914d794,e0031faa4914d794",
+]
 kernel_args = [
   "debug=0x14e",
   "kt_fixed_zones=120",
@@ -149,6 +162,7 @@ kernel_args = [
   "offline-key-events=1",           # kits/sirius/KeyStoreProbe.cpp publishes the AppleKeyStoreState service
   "sheng-aks=1",                    # its user client answers the state queries (no passcode, unlocked): with
                                     # persistent Data SpringBoard does not finish booting without them
+  "sirius-spawn-log=1",             # package/BootProgress.c: a SPAWN console line per exec and exit, with the second
   # "sirius_usb_power=1",           # opt-in: power the USB GDSC and report the readback (proven safe).
   #                                 # 2/3/4 additionally touch the branch clocks; on SDM710 that stalls the
   #                                 # bus and reboots the phone unless the clock sources are programmed first.
