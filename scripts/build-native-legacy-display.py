@@ -209,12 +209,17 @@ def build_cxx_object(src_path, dst_obj, extra_includes=None):
     while idx < len(args):
         val = args[idx]
         if val == record['file']:
-            if '-x' not in cmd:
-                cmd.extend(['-x', 'c++', '-std=c++17', '-fapple-kext', '-nostdinc++'])
+            cmd.extend(['-x', 'c++', '-std=c++17', '-fapple-kext', '-nostdinc++'])
             cmd.append(str(src_path))
         elif val == '-o':
             cmd.extend(['-o', str(dst_obj)])
             idx += 1
+        elif val == '-x':
+            idx += 1
+        elif val.startswith('-std=') or val.startswith('-stdlib'):
+            pass
+        elif val in ('-fapple-kext', '-nostdinc++'):
+            pass
         elif val == '-Xclang' and args[idx + 1].startswith('-W'):
             idx += 1
         elif not val.startswith('-W') and val not in ('-MD', '-MP'):
@@ -250,9 +255,12 @@ def build_c_object(src_path, dst_obj):
         elif val == '-o':
             cmd.extend(['-o', str(dst_obj)])
             idx += 1
-        elif val in ('-x', '-std=c++17', '-fapple-kext', '-nostdinc++'):
-            if val == '-x':
-                idx += 1
+        elif val == '-x':
+            idx += 1
+        elif val.startswith('-std=') or val.startswith('-stdlib'):
+            pass
+        elif val in ('-fapple-kext', '-nostdinc++', '-fno-rtti', '-fno-exceptions', '-fno-threadsafe-statics'):
+            pass
         elif val == '-Xclang' and args[idx + 1].startswith('-W'):
             idx += 1
         elif not val.startswith('-W') and val not in ('-MD', '-MP'):

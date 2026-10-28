@@ -296,6 +296,7 @@ findings = [
   "The panel is the readable kernel log of this port: it renders the console, the TOPO/PROBE rows and panic() output.",
   "Since the panic snapshot patch the panel re-renders at panic time, so the rows are not a stale frame.",
   "NativeLegacyDisplay and NativeGOPPresenter compile as a late archive (libNativeLegacyDisplay.late.a) via scripts/build-native-legacy-display.py, stripping static constructors from __DATA,__mod_init_func and globalizing them so the board display probe in LegacyDisplayProbe.cpp runs them safely after prelinked kexts have been admitted.",
+  "The archive build script filters out C++ language and standard flags (-std=gnu++2b, -fapple-kext, -nostdinc++) when compiling C source units such as LegacyDisplayStubs.c.",
   "Audit against the 21H461 kernelcache proved the exact 13 dispatch table / constructor / method targets for IOMobileFramebufferLegacy and its 358-entry vtable with 9 abstract leaves.",
   "The GOP framebuffer nub publishes under /arm-io as display-subsystem in phase 4, registering power management and publishing the display service so SpringBoard stops crash-looping.",
 ]
