@@ -1,0 +1,664 @@
+# sirius, kernel ca828cc (commit 144de65, sirius-spawn-log=1) / payload 95bcb3a (commit 1ce0478: CoreUI text fixup, validation_disables=0x10)
+# fastboot flash vendor tmp\payload-V-nostackshot.img; fastboot reboot; python scripts/capture-usb-console.py --follow --wait 120 --duration 280 --idle-stop 20
+# Every SPAWN line of the first window, de-duplicated (the heartbeat re-mirrors the log buffer) and sorted by second; the console's
+# heartbeat stopped at about 258 s while the phone kept running: the panel photo at t=2177 s shows crashes=0, the migration bar full,
+# FB 62 swaps/s, LOAD user 0% sys 12% idle 87%, and EXIT rows RepackagingWorker sig 9 (exit-reason namespace 15, RunningBoard),
+# xpcproxy exit 78, com.apple.migrationpluginwrapper sig 9 (namespace 2, a signal).
+SPAWN 38s exec 1 launchd
+SPAWN 38s exit 1 init status=0 ns=0 code=0
+SPAWN 137s exec 2 fsck
+SPAWN 138s exec 3 mount
+SPAWN 138s exec 4 seputil
+SPAWN 138s exec 5 mobile_obliterator
+SPAWN 138s exit 2 fsck status=0 ns=0 code=0
+SPAWN 138s exit 3 mount status=0 ns=0 code=0
+SPAWN 138s exit 4 seputil status=0 ns=0 code=0
+SPAWN 139s exec 10 cc_fips_test
+SPAWN 139s exec 11 keybagd
+SPAWN 139s exec 7 apfs_boot_util
+SPAWN 139s exec 7 mount
+SPAWN 139s exec 8 MSUEarlyBootTask
+SPAWN 139s exit 10 cc_fips_test status=0 ns=0 code=0
+SPAWN 139s exit 11 keybagd status=0 ns=0 code=0
+SPAWN 139s exit 5 mobile_obliterator status=0 ns=0 code=0
+SPAWN 139s exit 6 launchd status=1 ns=0 code=0
+SPAWN 139s exit 7 apfs_boot_util status=0 ns=0 code=0
+SPAWN 139s exit 7 mount status=0 ns=0 code=0
+SPAWN 139s exit 8 MSUEarlyBootTask status=0 ns=0 code=0
+SPAWN 139s exit 9 MSUEarlyBootTask status=1 ns=0 code=0
+SPAWN 140s exec 12 usermanagerd
+SPAWN 140s exec 13 dirs_cleaner
+SPAWN 140s exec 14 xpcroleaccountd
+SPAWN 140s exec 15 init_featureflags
+SPAWN 140s exit 12 usermanagerd status=0 ns=0 code=0
+SPAWN 140s exit 13 dirs_cleaner status=0 ns=0 code=0
+SPAWN 140s exit 14 xpcroleaccountd status=0 ns=0 code=0
+SPAWN 141s exec 16 auearlyboot
+SPAWN 141s exec 17 tzinit
+SPAWN 141s exec 18 FinishRestoreFromBackup
+SPAWN 141s exec 19 finish_demo_restore
+SPAWN 141s exec 20 sysstatuscheck
+SPAWN 141s exec 21 prng_seedctl
+SPAWN 141s exec 22 launchd_cache_loader
+SPAWN 141s exec 23 init_exclavekit
+SPAWN 141s exit 15 init_featureflags status=0 ns=0 code=0
+SPAWN 141s exit 16 auearlyboot status=0 ns=0 code=0
+SPAWN 141s exit 17 tzinit status=0 ns=0 code=0
+SPAWN 141s exit 18 FinishRestoreFromBackup status=0 ns=0 code=0
+SPAWN 141s exit 19 finish_demo_restore status=0 ns=0 code=0
+SPAWN 141s exit 20 sysstatuscheck status=100 ns=0 code=0
+SPAWN 141s exit 21 prng_seedctl status=c00 ns=0 code=0
+SPAWN 141s exit 22 launchd_cache_loader status=0 ns=0 code=0
+SPAWN 141s exit 23 init_exclavekit status=0 ns=0 code=0
+SPAWN 142s exec 24 UserEventAgent
+SPAWN 142s exec 24 xpcproxy
+SPAWN 142s exec 25 logd
+SPAWN 142s exec 25 xpcproxy
+SPAWN 142s exec 26 xpcproxy
+SPAWN 142s exec 27 SpringBoard
+SPAWN 142s exec 28 xpcproxy
+SPAWN 142s exec 29 mediaserverd
+SPAWN 142s exec 29 xpcproxy
+SPAWN 142s exec 30 xpcproxy
+SPAWN 142s exec 31 xpcproxy
+SPAWN 142s exec 32 xpcproxy
+SPAWN 142s exec 33 xpcproxy
+SPAWN 142s exec 34 xpcproxy
+SPAWN 142s exec 35 xpcproxy
+SPAWN 142s exec 36 xpcproxy
+SPAWN 142s exec 37 configd
+SPAWN 142s exec 37 xpcproxy
+SPAWN 142s exec 38 xpcproxy
+SPAWN 142s exec 39 xpcproxy
+SPAWN 142s exec 40 xpcproxy
+SPAWN 142s exec 41 xpcproxy
+SPAWN 142s exec 42 xpcproxy
+SPAWN 142s exec 43 xpcproxy
+SPAWN 142s exec 44 wifid
+SPAWN 142s exec 44 xpcproxy
+SPAWN 142s exec 45 remoted
+SPAWN 142s exec 45 xpcproxy
+SPAWN 142s exec 46 keybagd
+SPAWN 142s exec 46 xpcproxy
+SPAWN 142s exec 47 xpcproxy
+SPAWN 142s exec 48 amfid
+SPAWN 142s exec 48 xpcproxy
+SPAWN 142s exec 49 DumpPanic
+SPAWN 142s exec 49 xpcproxy
+SPAWN 142s exec 50 xpcproxy
+SPAWN 142s exec 51 mobiletimerd
+SPAWN 142s exec 51 xpcproxy
+SPAWN 142s exec 52 xpcproxy
+SPAWN 142s exec 53 xpcproxy
+SPAWN 142s exec 54 thermalmonitord
+SPAWN 142s exec 54 xpcproxy
+SPAWN 142s exec 55 xpcproxy
+SPAWN 142s exec 56 xpcproxy
+SPAWN 142s exec 57 xpcproxy
+SPAWN 142s exec 58 timed
+SPAWN 142s exec 58 xpcproxy
+SPAWN 142s exec 59 xpcproxy
+SPAWN 142s exec 60 xpcproxy
+SPAWN 142s exec 61 xpcproxy
+SPAWN 142s exec 62 containermanagerd
+SPAWN 142s exec 62 xpcproxy
+SPAWN 142s exec 63 xpcproxy
+SPAWN 142s exec 64 driverkitd
+SPAWN 142s exec 64 xpcproxy
+SPAWN 142s exec 65 xpcproxy
+SPAWN 142s exec 66 sleepd
+SPAWN 142s exec 66 xpcproxy
+SPAWN 142s exec 67 ptpd
+SPAWN 142s exec 67 xpcproxy
+SPAWN 142s exec 68 xpcproxy
+SPAWN 142s exec 69 xpcproxy
+SPAWN 142s exec 70 xpcproxy
+SPAWN 142s exec 71 xpcproxy
+SPAWN 142s exec 72 AppleCredentialManagerDa
+SPAWN 142s exec 72 xpcproxy
+SPAWN 142s exec 73 xpcproxy
+SPAWN 142s exec 74 xpcproxy
+SPAWN 142s exec 75 rapportd
+SPAWN 142s exec 75 xpcproxy
+SPAWN 142s exec 76 mtmergeprops
+SPAWN 142s exec 76 xpcproxy
+SPAWN 142s exec 77 xpcproxy
+SPAWN 142s exec 78 fseventsd
+SPAWN 142s exec 78 xpcproxy
+SPAWN 142s exec 79 IOMFB_FDR_Loader
+SPAWN 142s exec 79 xpcproxy
+SPAWN 142s exec 80 xpcproxy
+SPAWN 142s exec 81 distnoted
+SPAWN 142s exec 81 xpcproxy
+SPAWN 142s exec 82 notifyd
+SPAWN 142s exec 82 xpcproxy
+SPAWN 142s exec 83 xpcproxy
+SPAWN 142s exit 24 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 25 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 29 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 37 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 44 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 45 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 46 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 48 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 49 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 51 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 54 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 62 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 64 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 66 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 67 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 72 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 76 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 78 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 79 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 81 xpcproxy status=0 ns=0 code=0
+SPAWN 142s exit 82 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exec 26 runningboardd
+SPAWN 143s exec 28 peopled
+SPAWN 143s exec 32 routined
+SPAWN 143s exec 33 mediaremoted
+SPAWN 143s exec 35 misd
+SPAWN 143s exec 36 healthd
+SPAWN 143s exec 38 accessoryupdaterd
+SPAWN 143s exec 39 tccd
+SPAWN 143s exec 40 powerd
+SPAWN 143s exec 42 WirelessRadioManagerd
+SPAWN 143s exec 43 biomed
+SPAWN 143s exec 47 familynotificationd
+SPAWN 143s exec 52 softwareupdated
+SPAWN 143s exec 55 contextstored
+SPAWN 143s exec 57 askpermissiond
+SPAWN 143s exec 63 audioaccessoryd
+SPAWN 143s exec 70 PerfPowerServices
+SPAWN 143s exec 80 IOMFB_bics_daemon
+SPAWN 143s exec 83 usermanagerd
+SPAWN 143s exec 84 logd_helper
+SPAWN 143s exec 84 xpcproxy
+SPAWN 143s exit 26 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 28 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 32 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 33 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 35 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 36 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 38 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 39 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 40 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 42 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 43 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 47 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 52 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 55 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 57 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 63 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 70 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 80 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 83 xpcproxy status=0 ns=0 code=0
+SPAWN 143s exit 84 xpcproxy status=0 ns=0 code=0
+SPAWN 144s exec 34 axassetsd
+SPAWN 144s exec 60 ManagedSettingsAgent
+SPAWN 144s exec 69 aggregated
+SPAWN 144s exec 71 OTACrashCopier
+SPAWN 144s exec 77 amsaccountsd
+SPAWN 144s exec 85 xpcproxy
+SPAWN 144s exec 86 xpcproxy
+SPAWN 144s exec 87 xpcproxy
+SPAWN 144s exit 34 xpcproxy status=0 ns=0 code=0
+SPAWN 144s exit 60 xpcproxy status=0 ns=0 code=0
+SPAWN 144s exit 69 xpcproxy status=0 ns=0 code=0
+SPAWN 144s exit 71 xpcproxy status=0 ns=0 code=0
+SPAWN 144s exit 77 xpcproxy status=0 ns=0 code=0
+SPAWN 145s exec 88 containermanagerd_system
+SPAWN 145s exec 88 xpcproxy
+SPAWN 145s exit 88 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exec 30 assistantd
+SPAWN 148s exec 41 atc
+SPAWN 148s exec 50 seld
+SPAWN 148s exec 53 nfcd
+SPAWN 148s exec 56 backboardd
+SPAWN 148s exec 59 sharingd
+SPAWN 148s exec 61 imagent
+SPAWN 148s exec 65 dasd
+SPAWN 148s exec 68 lockdownd
+SPAWN 148s exec 73 remindd
+SPAWN 148s exec 74 navd
+SPAWN 148s exec 86 analyticsd
+SPAWN 148s exit 30 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 31 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 41 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 50 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 53 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 56 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 59 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 61 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 65 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 68 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 73 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 74 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 85 xpcproxy status=0 ns=0 code=0
+SPAWN 148s exit 86 xpcproxy status=0 ns=0 code=0
+SPAWN 149s exec 89 audiomxd
+SPAWN 149s exec 89 xpcproxy
+SPAWN 149s exec 90 ACCHWComponentAuthServic
+SPAWN 149s exec 90 xpcproxy
+SPAWN 149s exec 91 lsd
+SPAWN 149s exec 91 xpcproxy
+SPAWN 149s exec 92 xpcproxy
+SPAWN 149s exit 49 DumpPanic status=0 ns=0 code=0
+SPAWN 149s exit 89 xpcproxy status=0 ns=0 code=0
+SPAWN 149s exit 90 xpcproxy status=0 ns=0 code=0
+SPAWN 149s exit 91 xpcproxy status=0 ns=0 code=0
+SPAWN 150s exec 92 MobileGestaltHelper
+SPAWN 150s exit 92 xpcproxy status=0 ns=0 code=0
+SPAWN 151s exec 93 com.apple.datamigrator
+SPAWN 151s exec 93 xpcproxy
+SPAWN 151s exec 94 CloudKeychainProxy
+SPAWN 151s exec 94 xpcproxy
+SPAWN 151s exec 95 liveactivitiesd
+SPAWN 151s exec 95 xpcproxy
+SPAWN 151s exec 96 xpcproxy
+SPAWN 151s exec 97 xpcproxy
+SPAWN 151s exit 79 IOMFB_FDR_Loader status=100 ns=0 code=0
+SPAWN 151s exit 93 xpcproxy status=0 ns=0 code=0
+SPAWN 151s exit 94 xpcproxy status=0 ns=0 code=0
+SPAWN 151s exit 95 xpcproxy status=0 ns=0 code=0
+SPAWN 152s exec 96 chronod
+SPAWN 152s exec 97 biometrickitd
+SPAWN 152s exec 98 akd
+SPAWN 152s exec 98 xpcproxy
+SPAWN 152s exec 99 syncdefaultsd
+SPAWN 152s exec 99 xpcproxy
+SPAWN 152s exit 96 xpcproxy status=0 ns=0 code=0
+SPAWN 152s exit 97 xpcproxy status=0 ns=0 code=0
+SPAWN 152s exit 98 xpcproxy status=0 ns=0 code=0
+SPAWN 152s exit 99 xpcproxy status=0 ns=0 code=0
+SPAWN 153s exec 100 WiFiCloudAssetsXPCServic
+SPAWN 153s exec 100 xpcproxy
+SPAWN 153s exec 101 mobileassetd
+SPAWN 153s exec 101 xpcproxy
+SPAWN 153s exit 100 xpcproxy status=0 ns=0 code=0
+SPAWN 153s exit 101 xpcproxy status=0 ns=0 code=0
+SPAWN 154s exec 102 accountsd
+SPAWN 154s exec 102 xpcproxy
+SPAWN 154s exec 103 pfd
+SPAWN 154s exec 103 xpcproxy
+SPAWN 154s exec 104 iconservicesagent
+SPAWN 154s exec 104 xpcproxy
+SPAWN 154s exit 102 xpcproxy status=0 ns=0 code=0
+SPAWN 154s exit 103 xpcproxy status=0 ns=0 code=0
+SPAWN 154s exit 104 xpcproxy status=0 ns=0 code=0
+SPAWN 156s exec 105 nehelper
+SPAWN 156s exec 105 xpcproxy
+SPAWN 156s exec 106 PowerUIAgent
+SPAWN 156s exec 106 xpcproxy
+SPAWN 156s exec 107 homed
+SPAWN 156s exec 107 xpcproxy
+SPAWN 156s exec 108 IMDPersistenceAgent
+SPAWN 156s exec 108 xpcproxy
+SPAWN 156s exec 109 filecoordinationd
+SPAWN 156s exec 109 xpcproxy
+SPAWN 156s exec 110 mDNSResponder
+SPAWN 156s exec 110 xpcproxy
+SPAWN 156s exit 105 xpcproxy status=0 ns=0 code=0
+SPAWN 156s exit 106 xpcproxy status=0 ns=0 code=0
+SPAWN 156s exit 107 xpcproxy status=0 ns=0 code=0
+SPAWN 156s exit 108 xpcproxy status=0 ns=0 code=0
+SPAWN 156s exit 109 xpcproxy status=0 ns=0 code=0
+SPAWN 156s exit 110 xpcproxy status=0 ns=0 code=0
+SPAWN 157s exec 111 xpcproxy
+SPAWN 157s exec 112 xpcproxy
+SPAWN 157s exec 113 swcd
+SPAWN 157s exec 113 xpcproxy
+SPAWN 157s exit 111 xpcproxy status=0 ns=0 code=0
+SPAWN 157s exit 112 xpcproxy status=0 ns=0 code=0
+SPAWN 157s exit 113 xpcproxy status=0 ns=0 code=0
+SPAWN 158s exec 114 xpcproxy
+SPAWN 158s exec 115 calaccessd
+SPAWN 158s exec 115 xpcproxy
+SPAWN 158s exec 116 cryptexd
+SPAWN 158s exec 116 xpcproxy
+SPAWN 158s exit 115 xpcproxy status=0 ns=0 code=0
+SPAWN 158s exit 116 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exec 114 usernotificationsd
+SPAWN 159s exec 117 securityd
+SPAWN 159s exec 117 xpcproxy
+SPAWN 159s exec 118 donotdisturbd
+SPAWN 159s exec 118 xpcproxy
+SPAWN 159s exec 119 ScreenTimeAgent
+SPAWN 159s exec 119 xpcproxy
+SPAWN 159s exec 120 CircleJoinRequested
+SPAWN 159s exec 120 xpcproxy
+SPAWN 159s exec 121 ProtectedCloudKeySyncing
+SPAWN 159s exec 121 xpcproxy
+SPAWN 159s exec 122 cdpd
+SPAWN 159s exec 122 xpcproxy
+SPAWN 159s exec 123 backupd
+SPAWN 159s exec 123 xpcproxy
+SPAWN 159s exec 124 transparencyd
+SPAWN 159s exec 124 xpcproxy
+SPAWN 159s exit 114 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 117 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 118 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 119 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 120 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 121 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 122 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 123 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 124 xpcproxy status=0 ns=0 code=0
+SPAWN 159s exit 94 CloudKeychainProxy status=0 ns=0 code=0
+SPAWN 160s exec 125 apsd
+SPAWN 160s exec 125 xpcproxy
+SPAWN 160s exec 126 sociallayerd
+SPAWN 160s exec 126 xpcproxy
+SPAWN 160s exec 127 cloudd
+SPAWN 160s exec 127 xpcproxy
+SPAWN 160s exec 128 suggestd
+SPAWN 160s exec 128 xpcproxy
+SPAWN 160s exit 125 xpcproxy status=0 ns=0 code=0
+SPAWN 160s exit 126 xpcproxy status=0 ns=0 code=0
+SPAWN 160s exit 127 xpcproxy status=0 ns=0 code=0
+SPAWN 160s exit 128 xpcproxy status=0 ns=0 code=0
+SPAWN 161s exec 129 followupd
+SPAWN 161s exec 129 xpcproxy
+SPAWN 161s exec 130 contactsd
+SPAWN 161s exec 130 xpcproxy
+SPAWN 161s exec 131 mobileactivationd
+SPAWN 161s exec 131 xpcproxy
+SPAWN 161s exec 132 dmd
+SPAWN 161s exec 132 xpcproxy
+SPAWN 161s exec 133 xpcproxy
+SPAWN 161s exec 134 findmydeviced
+SPAWN 161s exec 134 xpcproxy
+SPAWN 161s exec 135 CloudKeychainProxy
+SPAWN 161s exec 135 xpcproxy
+SPAWN 161s exec 136 xpcproxy
+SPAWN 161s exit 129 xpcproxy status=0 ns=0 code=0
+SPAWN 161s exit 130 xpcproxy status=0 ns=0 code=0
+SPAWN 161s exit 131 xpcproxy status=0 ns=0 code=0
+SPAWN 161s exit 132 xpcproxy status=0 ns=0 code=0
+SPAWN 161s exit 134 xpcproxy status=0 ns=0 code=0
+SPAWN 161s exit 135 xpcproxy status=0 ns=0 code=0
+SPAWN 161s exit 70 PerfPowerServices status=100 ns=0 code=0
+SPAWN 162s exec 136 PerfPowerServices
+SPAWN 162s exec 137 siriknowledged
+SPAWN 162s exec 137 xpcproxy
+SPAWN 162s exec 138 gamed
+SPAWN 162s exec 138 xpcproxy
+SPAWN 162s exec 139 coreidvd
+SPAWN 162s exec 139 xpcproxy
+SPAWN 162s exec 140 watchlistd
+SPAWN 162s exec 140 xpcproxy
+SPAWN 162s exit 135 CloudKeychainProxy status=0 ns=0 code=0
+SPAWN 162s exit 136 xpcproxy status=0 ns=0 code=0
+SPAWN 162s exit 137 xpcproxy status=0 ns=0 code=0
+SPAWN 162s exit 138 xpcproxy status=0 ns=0 code=0
+SPAWN 162s exit 139 xpcproxy status=0 ns=0 code=0
+SPAWN 162s exit 140 xpcproxy status=0 ns=0 code=0
+SPAWN 163s exec 141 bookassetd
+SPAWN 163s exec 141 xpcproxy
+SPAWN 163s exec 142 symptomsd-diag
+SPAWN 163s exec 142 xpcproxy
+SPAWN 163s exec 143 appstored
+SPAWN 163s exec 143 xpcproxy
+SPAWN 163s exit 141 xpcproxy status=0 ns=0 code=0
+SPAWN 163s exit 142 xpcproxy status=0 ns=0 code=0
+SPAWN 163s exit 143 xpcproxy status=0 ns=0 code=0
+SPAWN 164s exec 144 mobilerepaird
+SPAWN 164s exec 144 xpcproxy
+SPAWN 164s exec 145 deleted
+SPAWN 164s exec 145 xpcproxy
+SPAWN 164s exec 146 triald
+SPAWN 164s exec 146 xpcproxy
+SPAWN 164s exec 147 pkd
+SPAWN 164s exec 147 xpcproxy
+SPAWN 164s exit 144 xpcproxy status=0 ns=0 code=0
+SPAWN 164s exit 145 xpcproxy status=0 ns=0 code=0
+SPAWN 164s exit 146 xpcproxy status=0 ns=0 code=0
+SPAWN 164s exit 147 xpcproxy status=0 ns=0 code=0
+SPAWN 165s exec 148 mlhostd
+SPAWN 165s exec 148 xpcproxy
+SPAWN 165s exec 149 wifianalyticsd
+SPAWN 165s exec 149 xpcproxy
+SPAWN 165s exec 150 itunesstored
+SPAWN 165s exec 150 xpcproxy
+SPAWN 165s exec 151 profiled
+SPAWN 165s exec 151 xpcproxy
+SPAWN 165s exit 148 xpcproxy status=0 ns=0 code=0
+SPAWN 165s exit 149 xpcproxy status=0 ns=0 code=0
+SPAWN 165s exit 150 xpcproxy status=0 ns=0 code=0
+SPAWN 165s exit 151 xpcproxy status=0 ns=0 code=0
+SPAWN 166s exec 152 eligibilityd
+SPAWN 166s exec 152 xpcproxy
+SPAWN 166s exec 153 callservicesd
+SPAWN 166s exec 153 xpcproxy
+SPAWN 166s exec 154 countryd
+SPAWN 166s exec 154 xpcproxy
+SPAWN 166s exit 152 xpcproxy status=0 ns=0 code=0
+SPAWN 166s exit 153 xpcproxy status=0 ns=0 code=0
+SPAWN 166s exit 154 xpcproxy status=0 ns=0 code=0
+SPAWN 167s exec 155 announced
+SPAWN 167s exec 155 xpcproxy
+SPAWN 167s exit 155 xpcproxy status=0 ns=0 code=0
+SPAWN 168s exec 156 assistant_cdmd
+SPAWN 168s exec 156 xpcproxy
+SPAWN 168s exit 156 xpcproxy status=0 ns=0 code=0
+SPAWN 169s exec 157 symptomsd
+SPAWN 169s exec 157 xpcproxy
+SPAWN 169s exit 157 xpcproxy status=0 ns=0 code=0
+SPAWN 170s exec 158 osanalyticshelper
+SPAWN 170s exec 158 xpcproxy
+SPAWN 170s exec 159 searchd
+SPAWN 170s exec 159 xpcproxy
+SPAWN 170s exec 160 installcoordinationd
+SPAWN 170s exec 160 xpcproxy
+SPAWN 170s exec 161 contactsdonationagent
+SPAWN 170s exec 161 xpcproxy
+SPAWN 170s exit 158 xpcproxy status=0 ns=0 code=0
+SPAWN 170s exit 159 xpcproxy status=0 ns=0 code=0
+SPAWN 170s exit 160 xpcproxy status=0 ns=0 code=0
+SPAWN 170s exit 161 xpcproxy status=0 ns=0 code=0
+SPAWN 171s exec 162 ContextService
+SPAWN 171s exec 162 xpcproxy
+SPAWN 171s exit 162 xpcproxy status=0 ns=0 code=0
+SPAWN 172s exec 133 rtcreportingd
+SPAWN 172s exec 163 networkserviceproxy
+SPAWN 172s exec 163 xpcproxy
+SPAWN 172s exec 164 xpcproxy
+SPAWN 172s exit 120 CircleJoinRequested status=0 ns=0 code=0
+SPAWN 172s exit 133 xpcproxy status=0 ns=0 code=0
+SPAWN 172s exit 163 xpcproxy status=0 ns=0 code=0
+SPAWN 173s exec 164 duetexpertd
+SPAWN 173s exec 165 geod
+SPAWN 173s exec 165 xpcproxy
+SPAWN 173s exit 164 xpcproxy status=0 ns=0 code=0
+SPAWN 173s exit 165 xpcproxy status=0 ns=0 code=0
+SPAWN 174s exec 166 fileproviderd
+SPAWN 174s exec 166 xpcproxy
+SPAWN 174s exit 166 xpcproxy status=0 ns=0 code=0
+SPAWN 175s exec 167 ind
+SPAWN 175s exec 167 xpcproxy
+SPAWN 175s exec 168 findmylocated
+SPAWN 175s exec 168 xpcproxy
+SPAWN 175s exec 169 privacyaccountingd
+SPAWN 175s exec 169 xpcproxy
+SPAWN 175s exit 167 xpcproxy status=0 ns=0 code=0
+SPAWN 175s exit 168 xpcproxy status=0 ns=0 code=0
+SPAWN 175s exit 169 xpcproxy status=0 ns=0 code=0
+SPAWN 176s exec 170 audioanalyticsd
+SPAWN 176s exec 170 xpcproxy
+SPAWN 176s exit 170 xpcproxy status=0 ns=0 code=0
+SPAWN 177s exec 171 siriinferenced
+SPAWN 177s exec 171 xpcproxy
+SPAWN 177s exec 172 siriactionsd
+SPAWN 177s exec 172 xpcproxy
+SPAWN 177s exec 173 corespeechd
+SPAWN 177s exec 173 xpcproxy
+SPAWN 177s exit 172 xpcproxy status=0 ns=0 code=0
+SPAWN 177s exit 173 xpcproxy status=0 ns=0 code=0
+SPAWN 178s exec 174 fmfd
+SPAWN 178s exec 174 xpcproxy
+SPAWN 178s exit 174 xpcproxy status=0 ns=0 code=0
+SPAWN 182s exec 175 com.apple.FaceTime.FTCon
+SPAWN 182s exec 175 xpcproxy
+SPAWN 182s exec 176 com.apple.NeighborhoodAc
+SPAWN 182s exec 176 xpcproxy
+SPAWN 182s exec 177 intelligentroutingd
+SPAWN 182s exec 177 xpcproxy
+SPAWN 182s exit 175 xpcproxy status=0 ns=0 code=0
+SPAWN 182s exit 176 xpcproxy status=0 ns=0 code=0
+SPAWN 182s exit 177 xpcproxy status=0 ns=0 code=0
+SPAWN 183s exec 178 useractivityd
+SPAWN 183s exec 178 xpcproxy
+SPAWN 183s exec 179 xpcproxy
+SPAWN 183s exec 180 com.apple.CallKit.CallDi
+SPAWN 183s exec 180 xpcproxy
+SPAWN 183s exec 181 xpcproxy
+SPAWN 183s exit 178 xpcproxy status=0 ns=0 code=0
+SPAWN 183s exit 180 xpcproxy status=0 ns=0 code=0
+SPAWN 184s exec 181 nearbyd
+SPAWN 184s exec 182 ABDatabaseDoctor
+SPAWN 184s exec 182 xpcproxy
+SPAWN 184s exit 181 xpcproxy status=0 ns=0 code=0
+SPAWN 184s exit 182 xpcproxy status=0 ns=0 code=0
+SPAWN 186s exit 69 aggregated status=0 ns=0 code=0
+SPAWN 190s exec 183 PerfPowerTelemetryClient
+SPAWN 190s exec 183 xpcproxy
+SPAWN 190s exec 184 com.apple.SharePlay.Near
+SPAWN 190s exec 184 xpcproxy
+SPAWN 190s exit 183 xpcproxy status=0 ns=0 code=0
+SPAWN 190s exit 184 xpcproxy status=0 ns=0 code=0
+SPAWN 191s exec 185 lockdownmoded
+SPAWN 191s exec 185 xpcproxy
+SPAWN 191s exit 185 xpcproxy status=0 ns=0 code=0
+SPAWN 192s exec 186 xpcproxy
+SPAWN 193s exec 187 misagent
+SPAWN 193s exec 187 xpcproxy
+SPAWN 193s exec 188 com.apple.migrationplugi
+SPAWN 193s exec 188 xpcproxy
+SPAWN 193s exit 187 xpcproxy status=0 ns=0 code=0
+SPAWN 193s exit 188 xpcproxy status=0 ns=0 code=0
+SPAWN 194s exec 189 xpcproxy
+SPAWN 194s exit 182 ABDatabaseDoctor status=0 ns=0 code=0
+SPAWN 195s exec 189 sirittsd
+SPAWN 195s exit 189 xpcproxy status=0 ns=0 code=0
+SPAWN 196s exec 190 installd
+SPAWN 196s exec 190 xpcproxy
+SPAWN 196s exec 191 parsecd
+SPAWN 196s exec 191 xpcproxy
+SPAWN 196s exit 190 xpcproxy status=0 ns=0 code=0
+SPAWN 196s exit 191 xpcproxy status=0 ns=0 code=0
+SPAWN 197s exec 192 com.apple.MobileInstalla
+SPAWN 197s exec 192 xpcproxy
+SPAWN 197s exit 192 xpcproxy status=0 ns=0 code=0
+SPAWN 198s exec 193 AssetCacheLocatorService
+SPAWN 198s exec 193 xpcproxy
+SPAWN 198s exec 194 videosubscriptionsd
+SPAWN 198s exec 194 xpcproxy
+SPAWN 198s exec 195 tvremoted
+SPAWN 198s exec 195 xpcproxy
+SPAWN 198s exec 196 storekitd
+SPAWN 198s exec 196 xpcproxy
+SPAWN 198s exec 197 online-auth-agent
+SPAWN 198s exec 197 xpcproxy
+SPAWN 198s exec 198 xpcproxy
+SPAWN 198s exec 199 managedappdistributiond
+SPAWN 198s exec 199 xpcproxy
+SPAWN 198s exec 200 xpcproxy
+SPAWN 198s exec 201 xpcproxy
+SPAWN 198s exit 193 xpcproxy status=0 ns=0 code=0
+SPAWN 198s exit 194 xpcproxy status=0 ns=0 code=0
+SPAWN 198s exit 195 xpcproxy status=0 ns=0 code=0
+SPAWN 198s exit 196 xpcproxy status=0 ns=0 code=0
+SPAWN 198s exit 197 xpcproxy status=0 ns=0 code=0
+SPAWN 198s exit 199 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exec 200 promotedcontentd
+SPAWN 199s exec 201 fitcored
+SPAWN 199s exec 202 linkd
+SPAWN 199s exec 202 xpcproxy
+SPAWN 199s exec 203 itunescloudd
+SPAWN 199s exec 203 xpcproxy
+SPAWN 199s exec 204 fmflocatord
+SPAWN 199s exec 204 xpcproxy
+SPAWN 199s exec 205 softposreaderd
+SPAWN 199s exec 205 xpcproxy
+SPAWN 199s exec 206 seserviced
+SPAWN 199s exec 206 xpcproxy
+SPAWN 199s exec 207 parsec-fbf
+SPAWN 199s exec 207 xpcproxy
+SPAWN 199s exec 208 bird
+SPAWN 199s exec 208 xpcproxy
+SPAWN 199s exec 209 attributionkitd
+SPAWN 199s exec 209 xpcproxy
+SPAWN 199s exec 210 mapssyncd
+SPAWN 199s exec 210 xpcproxy
+SPAWN 199s exec 211 xpcproxy
+SPAWN 199s exec 212 FamilyControlsAgent
+SPAWN 199s exec 212 xpcproxy
+SPAWN 199s exec 213 xpcproxy
+SPAWN 199s exit 200 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 201 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 202 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 203 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 204 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 205 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 206 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 207 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 208 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 209 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 210 xpcproxy status=0 ns=0 code=0
+SPAWN 199s exit 212 xpcproxy status=0 ns=0 code=0
+SPAWN 200s exec 213 clipserviced
+SPAWN 200s exit 213 xpcproxy status=0 ns=0 code=0
+SPAWN 202s exec 214 xpcproxy
+SPAWN 202s exec 215 xpcproxy
+SPAWN 203s exec 214 mmaintenanced
+SPAWN 203s exec 215 UsageTrackingAgent
+SPAWN 203s exec 216 diagnosticextensionsd
+SPAWN 203s exec 216 xpcproxy
+SPAWN 203s exit 214 xpcproxy status=0 ns=0 code=0
+SPAWN 203s exit 215 xpcproxy status=0 ns=0 code=0
+SPAWN 203s exit 216 xpcproxy status=0 ns=0 code=0
+SPAWN 203s exit 76 mtmergeprops status=0 ns=0 code=0
+SPAWN 208s exec 179 com.apple.MobileSoftware
+SPAWN 208s exit 179 xpcproxy status=0 ns=0 code=0
+SPAWN 209s exit 201 fitcored status=0 ns=0 code=0
+SPAWN 210s exec 198 localizationswitcherd
+SPAWN 210s exec 211 MTLAssetUpgraderD
+SPAWN 210s exit 198 xpcproxy status=0 ns=0 code=0
+SPAWN 210s exit 211 xpcproxy status=0 ns=0 code=0
+SPAWN 213s exec 217 xpcproxy
+SPAWN 213s exec 218 xpcproxy
+SPAWN 213s exec 219 xpcproxy
+SPAWN 213s exec 220 xpcproxy
+SPAWN 214s exec 217 UARPUpdaterServiceHID
+SPAWN 214s exec 218 UARPUpdaterServiceLegacy
+SPAWN 214s exec 219 UARPUpdaterServiceAFU
+SPAWN 214s exec 220 UARPUpdaterServiceUSBPD
+SPAWN 214s exec 221 extensionkitservice
+SPAWN 214s exec 221 xpcproxy
+SPAWN 214s exit 217 xpcproxy status=0 ns=0 code=0
+SPAWN 214s exit 218 xpcproxy status=0 ns=0 code=0
+SPAWN 214s exit 219 xpcproxy status=0 ns=0 code=0
+SPAWN 214s exit 220 xpcproxy status=0 ns=0 code=0
+SPAWN 214s exit 221 xpcproxy status=0 ns=0 code=0
+SPAWN 216s exec 222 ShortcutsTopHitsExtensio
+SPAWN 226s exec 223 IMDMessageServicesAgent
+SPAWN 226s exec 223 xpcproxy
+SPAWN 226s exit 223 xpcproxy status=0 ns=0 code=0
+SPAWN 230s exec 224 ScreenshotService
+SPAWN 230s exec 224 xpcproxy
+SPAWN 230s exec 225 SiriAUSP
+SPAWN 230s exec 226 MauiAUSP
+SPAWN 230s exit 224 xpcproxy status=0 ns=0 code=0
+SPAWN 233s exec 227 voicebankingd
+SPAWN 233s exec 227 xpcproxy
+SPAWN 233s exit 227 xpcproxy status=0 ns=0 code=0
+SPAWN 235s exec 228 MacinTalkAUSP
+SPAWN 237s exec 229 KonaSynthesizer
+SPAWN 238s exec 230 nesessionmanager
+SPAWN 238s exec 230 xpcproxy
+SPAWN 238s exit 230 xpcproxy status=0 ns=0 code=0
+SPAWN 241s exec 231 ReportCrash
+SPAWN 241s exec 231 xpcproxy
+SPAWN 241s exit 231 xpcproxy status=0 ns=0 code=0
+SPAWN 244s exit 123 backupd status=0 ns=0 code=0
