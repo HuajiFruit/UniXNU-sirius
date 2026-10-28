@@ -1,25 +1,24 @@
 # Next agent: where sirius stands and what to do
 
-Written when the work stopped. `main` of the fork
-[HuajiFruit/UniXNU-sirius](https://github.com/HuajiFruit/UniXNU-sirius) is at `2f29651`; every
-claim below has evidence in `porting.toml` and `docs/evidence/`. Read `AGENTS.md` for the rules
-(record check, payload-only changes, arguments to keep, traps).
+Written when the persistent Data volume was verified on hardware. Every claim below has evidence
+in `porting.toml` and `docs/evidence/`. Read `AGENTS.md` for the rules (record check, payload-only
+changes, arguments to keep, traps).
 
 ## Where the boot stands
 
-Measured on the phone with kernel `396fdab` and a 256 MiB RAM Data seed (timeline seconds after
-`fastboot reboot`, `docs/evidence/sirius-usb-console-20261028-data256.log`):
+Measured on the phone with kernel `66d0319` and the 8 GiB persistent eMMC Data window (timeline
+seconds after `fastboot reboot`, `docs/evidence/sirius-usb-console-20261028-pdata.log`):
 
 | Stage | State |
 | --- | --- |
 | U-Boot → UniXNU.efi → DarwinBoot → XNU | works; DarwinBoot gives XNU a 1 GiB window (`owned_memory_size`) |
-| eMMC | 50 MHz, 8-bit HS SDR, 256-block ADMA2 runs, about 30 MiB/s; eMMC driver up at about 51–58 s |
+| eMMC | 50 MHz, 8-bit HS SDR, 256-block ADMA2 runs, about 30 MiB/s; eMMC driver up at about 44–45 s |
 | Root | APFS mounts the OS volume; SystemOS cryptex union-mounted over `/` |
 | launchd | runs (PAN build); dyld maps the shared cache after the 4 KiB hash cache verifies it (about 100 s at boot) |
-| Data | RAM seed served by NativeEmmc, mounted at `/private/var` before launchd |
-| Boot tasks | `mount -P 1` passes with `/chosen/boot-manifest-hash`; all tasks run; "Early boot complete" at about 170 s |
-| After that | no panic up to 336 s; one daemon crash; **the Data volume fills about 60 s after early boot** |
-| Display / touch | nothing: no display driver, the screen shows only the boot panel |
+| Data | **8 GiB persistent eMMC Data volume** at LBA 35627008 behind root image, mounted at `/private/var` (`disk3s1`, OwnerData, UUID `0C28586B-...`) |
+| Boot tasks | `mount -P 1` passes with `/chosen/boot-manifest-hash`; all tasks run; "Early boot complete" at 159.6 s |
+| After that | **no panic up to 280 s; zero ENOSPC lines**; containermanagerd, launchd, analyticsd create containers without running out of disk; APFS transactions commit through xid 85; SpringBoard (pid 118) and liveactivitiesd (pid 128) crash for want of a display/framebuffer driver |
+| Display / touch | **next blocker**: no display driver, screen shows only boot panel, SpringBoard crashes without framebuffer |
 
 What got it here, all on `main` of the fork (not in 57UU's repository):
 
@@ -32,62 +31,24 @@ What got it here, all on `main` of the fork (not in 57UU's repository):
 | `09096e3` | `/chosen/boot-manifest-hash` (uke's bring-up value) for `mount -P 1` |
 | `b9922c1` | the shared bounce buffer stays under the lock (fixed APFS data hash mismatches); watchdogd and idle daemons disabled |
 | `2fc36a1` | U-Boot submodule repinned to a commit that exists upstream (57UU's pin `667807d` was never pushed and breaks every CI checkout) |
+| `e73a8ec` … | **Persistent Data volume on eMMC**: write path with ADMA2, CMD13 wait and CMD6 cache flush; double write fences (window + userdata minus first MiB); 8 GiB APFS container behind root image (LBA 35627008); fastboot sparse image generator (`make-data-window-image.py`) with DONT_CARE over root; verified on device with 0 ENOSPC |
 
-## The blocker: Data space, and the half-done fix
+## The current milestone & next blocker: Display
 
-A first iPadOS boot writes far more than a RAM Data volume can hold (`containermanagerd` creates a
-data container per app, plus launchd, analyticsd and APFS). The user chose a **persistent Data
-volume on the eMMC**, in the free part of `userdata` behind the 8.74 GiB root image (about 41 GiB).
+The Data space bottleneck is fully solved. The next blocker is **Display**:
 
-Branch **`wip/persistent-data`** (`e81b9e3`) holds the unfinished work. It is **not built, not
-booted and not recorded in `porting.toml`**:
+iPadOS draws nothing and SpringBoard crashes (`Process[118] crashed: SpringBoard. Too many corpses being created.`).
+U-Boot leaves a 1080x2240 splash framebuffer at `0x9c000000`; the `GopFramebuffer` component (UEFI GOP
+to MobileFramebuffer) or `NativeLegacyDisplay` is the route the other ports took (asteroids, tb128fu).
 
-- `package/sirius_emmc.c`: writes (CMD24/CMD25 with Auto-CMD12 through the ADMA2 run, CMD13 until
-  programmed, CMD6 FLUSH_CACHE when EXT_CSD CACHE_CTRL is on), fenced twice: the one window the
-  driver opens (`sirius_emmc_set_write_window`, once) and userdata minus its first MiB.
-- `package/NativeEmmc.cpp`: a read-write eMMC Data window starting at the first MiB behind the root
-  image the SHNGROOT manifest records (userdata byte 9382658048, LBA 35627008), sized by the APFS
-  container found there (NXSB superblock), published only with `sirius-data-write=1`; write
-  requests through the queue (bounce under the lock both ways); a cache flush on synchronize; the
-  Data hook takes the volume on whichever Data window exists, and the RAM seed is only published
-  when there is no persistent window.
-- `scripts/make-data-window-image.py`: turns the grown container into a fastboot sparse image for
-  `userdata`: DONT_CARE over the root image, RAW for the container's nonzero blocks, FILL for its
-  zero blocks. A `simg2img` round trip on a small fixture reproduced the container byte for byte.
-- `board.toml`: `sirius-data-write=1`, `[payload] size_mib` back to 256; `data-seed.yml`: default
-  container size 8192 MiB.
-
-To finish it:
-
-1. Review the branch diff (`git diff main wip/persistent-data`), merge it into `main`, and record it
-   in the same push: configuration (the argument, the size, the workflow default), storage (write
-   path, fences, Data window; add `scripts/make-data-window-image.py` to the storage `paths`),
-   diagnostics (the new log lines). Run the `--base` record check first.
-2. The push builds the kernel. Run the Data seed workflow (`size_mib=8192`), decrypt and unpack it
-   into a directory of its own, **not** `~/Xnu4Sirius/seed/` (a seed there would be passed as a RAM
-   seed by habit; the payload must not carry one now).
-3. `python3 scripts/make-data-window-image.py --root <userdata-root.img> --container owner-data.cdr
-   --output data-window.simg`, then from PowerShell `fastboot -S 512M flash userdata data-window.simg`.
-   The FILL chunks write 8 GiB of zeros on the card, which takes minutes.
-4. Build the payload without `--data-ramdisk`, flash `vendor`, capture. Expect `EMMC write window
-   lba=35627008 …`, `NEMMC data window lba/blocks`, `NEMMC data volume (eMMC) /dev/…`, and no ENOSPC.
-
-Not yet known: whether ABL's fastboot honours DONT_CARE without erasing `userdata` first. If the
-next boot cannot mount the root, the root image was erased: flash `userdata-root.simg` again, then
-the Data window image. The writes go to the phone's storage; keep both fences.
-
-## After the Data volume
-
-1. **Display**: iPadOS draws nothing. U-Boot leaves a 1080x2240 framebuffer at `0x9c000000`; the
-   `GopFramebuffer` component (UEFI GOP to MobileFramebuffer) or NativeLegacyDisplay is the route
-   the other ports took (asteroids, tb128fu).
+1. **Display**:
+   - Check how asteroids and tb128fu wire `GopFramebuffer` or `NativeLegacyDisplay`.
+   - Framebuffer parameters: base `0x9c000000`, 1080x2240 (or 1080x2244 DSI), 32-bit ARGB/BGRA.
+   - Publish `AppleCLCD` / `IOMobileFramebufferShim` so WindowServer / SpringBoard has a display device to attach to.
 2. **Touch**: Synaptics S3706; the OnePlus 6T (fajita) port has a driver to adapt.
 3. **Storage speed**: the card supports DDR52 and HS200 (`EXT_CSD type 0x57`); DDR52 needs no tuning.
-4. **Memory**: the user says this unit has 4 GB, while `board.toml` `dram_size` and the DTS memory
-   node describe the 6 GB model. The 1 GiB window works (it starts at `0xa3…`); read the real map
-   (DarwinBoot prints the free runs when a window does not fit) before asking for more.
-5. **Upstream**: 57UU's `porting.toml` still says "PAN is not the cause" and its U-Boot pin breaks
-   CI. A pull request with the PAN commits, the repin, the capture tooling and the eMMC work would
+4. **Memory**: read the real map from DarwinBoot to see if more than 1 GiB window can be allocated below 4 GiB.
+5. **Upstream PR**: 57UU's repository still has broken CI and lacks PAN/eMMC/Data fixes. A clean PR would help upstream.
    save them the same rounds.
 6. `CONFIG_XNU_OWNER_DATA_VOLUME_UUID` names the 256 MiB RAM seed (`E06A21C1…`); keep it in step
    with the seed in use (the driver logs a mismatch and mounts anyway).

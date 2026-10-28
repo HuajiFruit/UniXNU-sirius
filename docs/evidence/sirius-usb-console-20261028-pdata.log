@@ -1,0 +1,17 @@
+# USB console timeline (seconds after fastboot reboot, first arrival of each line), kernel 66d0319, 8 GiB persistent eMMC Data window
+# kernel.macho 66d0319c718f6faf894d1d713759b5d82d8da010c3bd2ad2c2c13bd195574a88
+# payload    c0d2e62c0738d6c851eeeebccf0236a310bcd14194df0ea1735efaef647420e6 (268435456 bytes, no ramdisk)
+# container  0C28586B-DF4D-4644-BBF0-B8EEA40A9CC5 (8589934592 bytes, LBA 35627008)
+44.8 EMMC write window lba=35627008 blocks=16777216 cache=0
+44.8 NEMMC data window lba 35627008
+44.8 NEMMC data window blocks 16777216
+45.0 NEMMC data volume is 0C28586B-DF4D-4644-BBF0-B8EEA40A9CC5, the kernel names E06A21C1-6686-49B8-B242-ED82B00F4AF8
+45.0 NEMMC data volume (eMMC) /dev/disk3s1
+45.0 apfs_log_op_with_proc:3091: disk3s1 mount-complete volume OwnerData, requested by: init (pid 1); parent: kernel_task (pid 0)
+159.6 [System Event] [3181105503] [INFO] [Subsystem: launchd] [Event: boot] Early boot complete. Continuing system boot.
+197.2 tx_flush:1338: disk3 xid 25 tx stats: # 20 owait 1 11079us finish 21 bar2 20 f 4 enter 78 fq 7 18 408us close 0us prep 609us flush 23964us
+202.8 Process[118] crashed: SpringBoard. Too many corpses being created.
+206.9 Process[128] crashed: liveactivitiesd. Too many corpses being created.
+255.6 tx_flush:1338: disk3 xid 85 tx stats: # 80 owait 4 18997us finish 81 bar2 80 f 6 enter 821 fq 55 135 1325us close 1us prep 1977us flush 28082us
+## ENOSPC lines by process
+     0 (no ENOSPC observed up to 280 s; APFS active through xid 85)
