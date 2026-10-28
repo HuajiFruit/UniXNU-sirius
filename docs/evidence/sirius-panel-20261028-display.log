@@ -1,0 +1,24 @@
+# On-screen live diagnostics panel (package/BootProgress.c crash_banner), transcribed from a photo of the phone
+# vendor = payload-N-display.img: kernel.macho 8f831f8ff72e49470a26483ae9337f7dd66c74f77a09bc9fc47cc1a0da0a91d3,
+#          payload 51c18b0a22c619de9359b29b39ab5af22be4f9532d65341365f3f83e1699bb42 (the panel title carries no build tag)
+# The rest of the 1080x2240 screen is black. Long rows are cut at the panel's right edge.
+ UniXNU live diagnostics  t=1470s  crashes=17 exits=32
+CRASH p231 liveactivitiesd sig5 PC1ca09a4f8 LR1ca09a4cc Ef2000001 F0 +87a4000 bt 1ca0800ec
+      0800c0 1ca1edec0 1ca1e0024 1005d0fc4 1b1c02228 0
+CRASH p229 liveactivitiesd sig5 PC1ca09a4f8 LR1ca09a4cc Ef2000001 F0 +87a4000 bt 1ca0800ec
+      0800c0 1ca1edec0 1ca1e0024 10090afc4 1b1c02228 0
+EXIT  p231 liveactivitiesd status=5 sig=5 exit=0 ns=2 sub=5
+EXIT  p229 liveactivitiesd status=5 sig=5 exit=0 ns=2 sub=5
+EXIT  p222 xpcproxy status=4e00 sig=0 exit=78 ns=0 sub=0
+FB    swaps/s=0 total=6 copy_us last=190068 mean=177702 max=190068 stored_KiB last=9450 me
+SWAP  calls=8 accepted=8 rejected=0 | gpu offers=0 done=0 failed=0 abandoned=0 fallback=0
+LOAD  user=0% sys=0% idle=99% (ticks 7970)
+UFS   since last: verify=0ms read=0ms blocks=0 reqs=0 | total verify=0ms read=0ms reqs=0
+SCHED 30ms sleeps since last: n=322 mean_late_us=975 max_late_us=1037 >50ms=0 | irq timer=
+WI#7 p56 backboardd create err=0 kret=0 flags=20000002 app=0
+WI#6 p56 backboardd create err=0 kret=0 flags=20000002 app=0
+WI#5 p56 backboardd create err=0 kret=0 flags=20000002 app=0
+## Reading
+# 8 swaps validated and accepted, 6 full frames (9450 KiB = 1080x2240x4) CPU-copied to the GOP buffer at about 180-190 ms each;
+# no GPU offers. The frames are black. The system is idle (99%), timers are on time, no panic after 24.5 minutes.
+# liveactivitiesd traps (SIGTRAP) at the same PC every time (in the shared cache range); xpcproxy exits 78 (EX_CONFIG).

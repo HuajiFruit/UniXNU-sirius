@@ -7,8 +7,8 @@ source or the OS profile (those are UniXNU), or the U-Boot firmware (that is sir
 
 ## Read first
 
-Read `docs/NEXT-AGENT.md` first: where the boot stands, what is half done, and what comes next.
-Then `README.md`, `docs/HANDOFF.zh-CN.md` and these UniXNU pages before changing the port:
+Read [Where the boot stands](#where-the-boot-stands) first, then `README.md`,
+`docs/HANDOFF.zh-CN.md` and these UniXNU pages before changing the port:
 
 | Task | Required reading |
 | --- | --- |
@@ -17,6 +17,38 @@ Then `README.md`, `docs/HANDOFF.zh-CN.md` and these UniXNU pages before changing
 | Kernel | [Source and patches](https://unixnu.com/xnu/source-and-patches), [patch reference](https://unixnu.com/xnu/patch-reference), the selected OS profile |
 | Images | [Prelink](https://unixnu.com/concepts/prelink), [payload](https://unixnu.com/concepts/payload), [boot chain](https://unixnu.com/concepts/boot-chain) |
 | Record | [Porting records](https://unixnu.com/porting/records) — `porting.toml` is machine-checked |
+
+## Where the boot stands
+
+Kernel `8f831f8` (commit `076f63c`), payload `51c18b0`; seconds after `fastboot reboot`. The
+evidence is `docs/evidence/sirius-usb-console-20261028-display.log` (console) and
+`docs/evidence/sirius-panel-20261028-display.log` (the on-screen panel); `porting.toml` has the
+rest.
+
+| Stage | State |
+| --- | --- |
+| U-Boot → UniXNU.efi → DarwinBoot → XNU | works; DarwinBoot gives XNU a 1 GiB window (`owned_memory_size`) |
+| eMMC | 50 MHz, 8-bit HS SDR, 256-block ADMA2, about 30 MiB/s |
+| Root, launchd | APFS OS volume with the SystemOS cryptex union-mounted; launchd runs (PAN build); dyld maps the shared cache after about 100 s of hash verification |
+| Data | 8 GiB persistent APFS Data volume on eMMC at LBA 35627008 behind the root image (`disk3s1`, OwnerData, `0C28586B…`); no ENOSPC |
+| Boot tasks | all run; "Early boot complete" at 174.6 s |
+| Display | `NativeLegacyDisplay` registers the U-Boot GOP framebuffer (1080x2240 at `0x9c000000`, rowBytes 4320) at 51.1 s; a client opens it at 189.2 s; display power on at 221.5 s, off at 260.5 s |
+| Presentation | 8 swaps accepted, 6 full frames CPU-copied (180–190 ms each), **all black**; `gpu offers=0`; IOMFB logs `default_fb_surface: No Default FB Surface found` at 224.9 s |
+| Userspace | no panic after 24.5 min; SpringBoard no longer crash-loops; liveactivitiesd traps (SIGTRAP) at the same PC every launch; one xpcproxy exits 78 |
+
+**Where it stops: nothing draws into the presented frames.** Next, in order:
+
+1. **Black frames.** There is no Adreno GPU driver, so CoreAnimation gets no GPU work done.
+   Find whether backboardd can render in software on this build or needs a GPU, and whether
+   the `default_fb_surface` miss matters. The live panel (`package/BootProgress.c`
+   `crash_banner`) shows the SWAP/FB/GPU counters on screen; read it after each boot.
+2. **Copy cost.** 180–190 ms per full-frame CPU copy caps the screen at about 5 fps.
+3. **liveactivitiesd** traps at PC `0x1ca09a4f8`; symbolize it against the 21H461 shared cache.
+4. **Touch:** Synaptics S3706 on I2C; the OnePlus 6T (`fajita`) port has a driver to adapt.
+5. Later: DDR52/HS200 eMMC (`EXT_CSD type 0x57`; DDR52 needs no tuning); more than a 1 GiB
+   window below 4 GiB; a clean upstream PR to 57UU (broken CI, no PAN/eMMC/Data/display fixes);
+   `CONFIG_XNU_OWNER_DATA_VOLUME_UUID` still names the RAM seed `E06A21C1…`, not `0C28586B…`
+   (the driver logs the mismatch and mounts anyway).
 
 ## Work
 
@@ -101,3 +133,54 @@ Do not repeat these; each one cost a hardware round:
 - The eMMC driver's shared bounce buffer stays under the transport lock until the copy into or
   out of the request is done; releasing it early handed one request another's blocks.
 - Every Data seed build formats a new volume with a new UUID.
+
+## Environment on the bring-up PC
+
+| What | Where |
+| --- | --- |
+| fastboot | `C:\Users\jimde\Desktop\Files\adb-platform-tools\fastboot.exe` (run flashes from PowerShell) |
+| gh | `C:\Program Files\GitHub CLI\gh.exe`, logged in (WSL's gh is not) |
+| WSL | Ubuntu-26.04, user `huajifruit`; `sudo` asks a password, so install packages with `wsl -u root` |
+| UniXNU checkout | `~/Xnu4Sirius/UniXNU`, `sirius_defconfig` selected with `-D ../UniXNU-sirius` |
+| Build clone | `~/Xnu4Sirius/UniXNU-sirius`; remotes `origin` (fork), `upstream` (57UU), `win` (the Windows checkout) |
+| IPSW, trust bundle | `~/Xnu4Sirius/UniXNU/refer/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw`, `build/original-static-system-trust/original-static-system.bundle` |
+| Root image | `~/Xnu4Sirius/UniXNU/out/sirius/ipados-17.7.11-21H461/sirius/userdata/userdata-root.img`, sparse `~/Xnu4Sirius/flash/userdata-root.simg` |
+| Images, kernels | `~/Xnu4Sirius/flash/`, `~/Xnu4Sirius/kernel/` |
+| Seed passphrase | `~/Xnu4Sirius/.data-seed-passphrase` (the fork's `ARTIFACT_PASSPHRASE` secret holds the same value) |
+| U-Boot image | `~/Xnu4Sirius/UniXNU-sirius/uboot/boot-unixnu.img` (`bash uboot/build.sh`) |
+
+On the phone now: `boot` = `boot-unixnu.img`, `userdata` = `data-window.simg` (the 8 GiB Data
+volume), `vendor` = `~/Xnu4Sirius/flash/payload-N-display.img` (kernel `8f831f8`, payload
+`51c18b0`).
+
+- Run WSL commands from script files: `wsl.exe -- bash -c '…'` from Git Bash loses `$variables`.
+  Set `MSYS_NO_PATHCONV=1` in Git Bash, and give fastboot `\\wsl.localhost\Ubuntu-26.04\…` paths
+  from PowerShell (or copy the image to a Windows folder first).
+- `gh run watch` drops on network errors; poll `gh run view <id> --json status,conclusion` instead.
+- Kernel artifacts expire after 3 days, seed artifacts after 7.
+- Captures go to `out/` (ignored). The heartbeat re-mirrors the whole kernel log buffer, so a raw
+  280 s capture runs to tens of MB; read the `--timeline` file first and commit only an excerpt.
+
+```sh
+# kernel: a push to main starts it, or
+gh workflow run kernel.yml -R HuajiFruit/UniXNU-sirius --ref main -f steps=kernel
+gh run download <run id> -R HuajiFruit/UniXNU-sirius -n sirius-kernel-<n> -D <dir>
+
+# payload, in WSL
+cd ~/Xnu4Sirius/UniXNU-sirius && git pull --ff-only origin main
+cd ~/Xnu4Sirius/UniXNU
+W=out/sirius/ipados-17.7.11-21H461/sirius
+./unixnu build payload --kernel <kernel.macho> -D ../UniXNU-sirius \
+  --trust-cache build/original-static-system-trust/original-static-system.bundle \
+  --ipsw refer/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw          # [--data-ramdisk <seed>]
+python3 ../UniXNU-sirius/scripts/make-uboot-payload.py --payload $W/payload/payload.img \
+  --unixnu-efi $W/package/Build/Out/AARCH64-DEBUG/UniXNU.efi \
+  --darwinboot-efi $W/tree/build/DarwinBoot/DEBUG_CLANGPDB/AARCH64/DarwinBoot.efi \
+  --marker --output ~/Xnu4Sirius/flash/payload-<name>.img
+
+# flash and capture, from PowerShell in this checkout (phone in fastboot)
+fastboot flash vendor \\wsl.localhost\Ubuntu-26.04\home\huajifruit\Xnu4Sirius\flash\payload-<name>.img
+fastboot reboot
+python scripts/capture-usb-console.py --follow --wait 120 --duration 280 --output out/<name>.log `
+  --timeline out/<name>.timeline --match 'NEMMC PANIC TEXT END' --idle-stop 20
+```
