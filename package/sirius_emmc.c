@@ -28,6 +28,10 @@ extern int PE_parse_boot_argn(const char *arg_string, void *arg_ptr, unsigned in
 /* Defined further down with the rest of the ADMA2 read path; the clock switch above uses it to
  * prove the new rate before anything depends on it. */
 static int sdhci_read_block_adma2(uint32_t lba, uint8_t *out);
+/* The probe reports every step of every transfer into the ring. Once the block driver takes over,
+ * that reporting costs more than the transfer itself (five lines per 512-byte block), so
+ * sirius_emmc_prepare() turns it off and only failures are reported from then on. */
+static bool emmc_trace = true;
 /* A spinning delay on purpose: delay() sleeps, and while the CPU is idle the GCC auto clock gating
  * turns the SDCC AHB clock off, after which every register reads back zero and no command ever
  * completes. */
@@ -384,19 +388,20 @@ emmc_set_card_clock_400k(void)
  * inside the default-speed range, so it needs no CMD6 switch; 50 MHz would.
  *
  * Returns 0 when a sector read still returns the GPT signature afterwards. */
-static int
-emmc_set_card_clock_25m(void)
+/* Reprogram the SDCC1 apps RCG and restart the controller clock on the new base. CFG carries the
+ * source, the divider (div * 2 - 1) and, in bits 13:12, the MND mode: with mode 0 the counters are
+ * bypassed, so M/N/D are only written when the entry uses them (clk-rcg2 does the same). */
+static void
+emmc_program_rate(uint32_t cfg, uint32_t m, uint32_t n, uint32_t d)
 {
-	if (gcc_base == 0) {
-		return -1;
-	}
-	uint16_t before = sdhci_read16(SDHCI_CLOCK_CONTROL);
 	*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_CMD) = 0;      /* root disabled while editing */
 	spin_us(10);
-	*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_CFG) = 0x260bu;  /* src GPLL0_EVEN, div 6, DUAL_EDGE */
-	*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_M) = 1u;
-	*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_N) = 0xfeu;
-	*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_D) = 0xfeu;
+	*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_CFG) = cfg;
+	if ((cfg & 0x3000u) != 0) {
+		*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_M) = m;
+		*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_N) = n;
+		*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_D) = d;
+	}
 	spin_us(10);
 	*(volatile uint32_t *)(gcc_base + GCC_SDCC1_APPS_CMD) = 1u;     /* update */
 	for (unsigned waited = 0; waited < 100000; waited += 100) {
@@ -417,6 +422,16 @@ emmc_set_card_clock_25m(void)
 	}
 	sdhci_write16(SDHCI_CLOCK_CONTROL, SDHCI_CLK_INTERNAL_EN | SDHCI_CLK_SD_EN);
 	spin_us(1000);
+}
+
+static int
+emmc_set_card_clock_25m(void)
+{
+	if (gcc_base == 0) {
+		return -1;
+	}
+	uint16_t before = sdhci_read16(SDHCI_CLOCK_CONTROL);
+	emmc_program_rate(0x260bu, 1u, 0xfeu, 0xfeu);   /* src GPLL0_EVEN, div 6, DUAL_EDGE, m/n 1/2 */
 
 	/* Prove it with the GPT signature before anybody depends on it. */
 	uint8_t probe[512];
@@ -592,8 +607,10 @@ emmc_prepare_transfer(void)
 	/* No SET_BLOCKLEN: an eMMC is block addressed and both U-Boot and Linux skip CMD16 here. */
 }
 
+/* One 512-byte data block for a single-block command: CMD17 (READ_SINGLE_BLOCK, argument = LBA)
+ * or CMD8 (SEND_EXT_CSD, argument 0). */
 static int
-sdhci_read_block_adma2(uint32_t lba, uint8_t *out)
+sdhci_read_adma2(uint32_t command_index, uint32_t argument, uint8_t *out)
 {
 	vm_offset_t buf_pa = kvtophys((vm_offset_t)sdma_buffer);
 	vm_offset_t raw_pa = kvtophys((vm_offset_t)adma_desc);
@@ -606,13 +623,17 @@ sdhci_read_block_adma2(uint32_t lba, uint8_t *out)
 	if (emmc_clear_command_line() != 0) {
 		return -1;
 	}
-	ring_puts("EMMC timeout-in=");
-	ring_hex(sdhci_read8(SDHCI_TIMEOUT_CONTROL), 2);
-	ring_puts("\r\n");
+	if (emmc_trace) {
+		ring_puts("EMMC timeout-in=");
+		ring_hex(sdhci_read8(SDHCI_TIMEOUT_CONTROL), 2);
+		ring_puts("\r\n");
+	}
 	emmc_prepare_transfer();
-	ring_puts("EMMC timeout-set=");
-	ring_hex(sdhci_read8(SDHCI_TIMEOUT_CONTROL), 2);
-	ring_puts("\r\n");
+	if (emmc_trace) {
+		ring_puts("EMMC timeout-set=");
+		ring_hex(sdhci_read8(SDHCI_TIMEOUT_CONTROL), 2);
+		ring_puts("\r\n");
+	}
 	for (unsigned i = 0; i < 512; i++) {
 		sdma_buffer[i] = 0;
 	}
@@ -647,44 +668,47 @@ sdhci_read_block_adma2(uint32_t lba, uint8_t *out)
 	    (SDHCI_TM_READ | SDHCI_TM_DMA)) {
 		return -1;
 	}
-	if (sdhci_command((uint16_t)((17u << 8) | SDHCI_CMD_DATA_PRESENT | SDHCI_CMD_RESP_48 |
-	    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), lba) != 0) {
+	if (sdhci_command((uint16_t)((command_index << 8) | SDHCI_CMD_DATA_PRESENT | SDHCI_CMD_RESP_48 |
+	    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), argument) != 0) {
 		return -1;
 	}
-	/* Sample the four DAT line levels while the clock runs: if they never change the card is not
-	 * driving data at all, which is a pad/hardware problem rather than a sampling one. */
-	uint32_t seen = 0;
-	unsigned transitions = 0;
-	uint32_t previous = (sdhci_read32(SDHCI_PRESENT_STATE) >> 20) & 0xfu;
-	for (unsigned i = 0; i < 2000; i++) {
-		uint32_t now = (sdhci_read32(SDHCI_PRESENT_STATE) >> 20) & 0xfu;
-		seen |= 1u << now;
-		if (now != previous) {
-			transitions++;
-			previous = now;
+	if (emmc_trace) {
+		/* Sample the four DAT line levels while the clock runs: if they never change the card
+		 * is not driving data at all, which is a pad/hardware problem rather than a sampling
+		 * one. */
+		uint32_t seen = 0;
+		unsigned transitions = 0;
+		uint32_t previous = (sdhci_read32(SDHCI_PRESENT_STATE) >> 20) & 0xfu;
+		for (unsigned i = 0; i < 2000; i++) {
+			uint32_t now = (sdhci_read32(SDHCI_PRESENT_STATE) >> 20) & 0xfu;
+			seen |= 1u << now;
+			if (now != previous) {
+				transitions++;
+				previous = now;
+			}
+			if ((sdhci_read16(SDHCI_INT_STATUS) & SDHCI_INT_TRANSFER_COMPLETE) != 0) {
+				break;
+			}
+			spin_us(50);
 		}
-		if ((sdhci_read16(SDHCI_INT_STATUS) & SDHCI_INT_TRANSFER_COMPLETE) != 0) {
-			break;
-		}
-		spin_us(50);
+		/* The card cannot send anything without the card clock, so record whether the
+		 * controller keeps it running while the data phase is pending. */
+		uint16_t clock_during = sdhci_read16(SDHCI_CLOCK_CONTROL);
+		uint32_t gcc_during = gcc_read(GCC_SDCC1_APPS_CBCR);
+		ring_puts("EMMC clock=");
+		ring_hex(sdhci_read16(SDHCI_CLOCK_CONTROL), 4);
+		ring_puts("\r\n");
+		ring_puts("EMMC clk-during=");
+		ring_hex(clock_during, 4);
+		ring_puts(" gcc=");
+		ring_hex(gcc_during, 8);
+		ring_puts("\r\n");
+		ring_puts("EMMC dat seen=");
+		ring_hex(seen, 4);
+		ring_puts(" trans=");
+		ring_dec(transitions);
+		ring_puts("\r\n");
 	}
-	/* The card cannot send anything without the card clock, so record whether the controller
-	 * keeps it running while the data phase is pending. */
-	uint16_t clock_during = sdhci_read16(SDHCI_CLOCK_CONTROL);
-	uint32_t gcc_during = gcc_read(GCC_SDCC1_APPS_CBCR);
-	ring_puts("EMMC clock=");
-	ring_hex(sdhci_read16(SDHCI_CLOCK_CONTROL), 4);
-	ring_puts("\r\n");
-	ring_puts("EMMC clk-during=");
-	ring_hex(clock_during, 4);
-	ring_puts(" gcc=");
-	ring_hex(gcc_during, 8);
-	ring_puts("\r\n");
-	ring_puts("EMMC dat seen=");
-	ring_hex(seen, 4);
-	ring_puts(" trans=");
-	ring_dec(transitions);
-	ring_puts("\r\n");
 	if (sdhci_wait(SDHCI_INT_TRANSFER_COMPLETE, 2000000) <= 0) {
 		/* 0x54: bits[1:0] say whether the descriptor was rejected (01), the transfer failed on
 		 * the bus (10) or both (11). That separates a malformed table from an IOMMU/bus problem. */
@@ -723,6 +747,12 @@ sdhci_read_block_adma2(uint32_t lba, uint8_t *out)
 		out[i] = sdma_buffer[i];
 	}
 	return 0;
+}
+
+static int
+sdhci_read_block_adma2(uint32_t lba, uint8_t *out)
+{
+	return sdhci_read_adma2(17u, lba, out);
 }
 
 /* Single-block read over SDMA: the boot chain left the controller in a DMA mode where the buffer
@@ -1050,7 +1080,7 @@ sirius_emmc_probe(void)
 
 	/* The boot chain left the card selected with RCA 1 in the transfer state; CMD13 answers right
 	 * away, which is the cheapest proof that the command channel works. */
-	uint32_t status[1] = { 0 };
+	uint32_t status[4] = { 0, 0, 0, 0 };
 	int rca_live = -1;
 	for (uint32_t rca = 1; rca <= 8; rca++) {
 		if (sdhci_command_capture((uint16_t)((13u << 8) | SDHCI_CMD_RESP_48 |
@@ -1074,7 +1104,7 @@ sirius_emmc_probe(void)
 	/* CMD17 is only *executed* by a selected card; an addressed but deselected card still answers
 	 * CMD13, which is how a card can look alive while every read returns nothing. */
 	{
-		uint32_t sel[1] = { 0 };
+		uint32_t sel[4] = { 0, 0, 0, 0 };
 		int sel_ok = sdhci_command_capture((uint16_t)((7u << 8) | SDHCI_CMD_RESP_48_BUSY |
 		    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), rca_live << 16, sel);
 		ring_puts("EMMC cmd7=");
@@ -1114,7 +1144,7 @@ sirius_emmc_probe(void)
 	/* State 5 means the card is waiting to stream a block the host never clocked out; state 4
 	 * means the transfer never started at all. */
 	(void)emmc_clear_command_line();
-	uint32_t after[1] = { 0 };
+	uint32_t after[4] = { 0, 0, 0, 0 };
 	int st_ok = sdhci_command_capture((uint16_t)((13u << 8) | SDHCI_CMD_RESP_48 |
 	    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), 1u << 16, after);
 	ring_puts("EMMC pio-distinct=");
@@ -1247,6 +1277,331 @@ static bool sirius_emmc_ready;
 /* Filled by sirius_emmc_prepare() from the GPT header: the drive the block driver publishes. */
 unsigned long long sirius_emmc_total_blocks;
 
+/* ------------------------------------------------------------------------- *
+ * Speed. The driver used to read one block per CMD17 at the 400 kHz identification clock
+ * (sirius_emmc_prepare() programmed it after the probe's 25 MHz switch): about 770 blocks/s on
+ * the 8-bit bus, so verifying the 3 GB dyld shared cache took two hours. Two things fix that:
+ *  - multi-block reads, one CMD18 with Auto-CMD12 for up to EMMC_RUN_BLOCKS blocks, the buffer
+ *    described piece by piece in an ADMA2 table;
+ *  - a faster card clock, climbed one verified step at a time (boot argument sirius_emmc_hs:
+ *    1 = 25 MHz, 2 = up to 50 MHz, 3 = up to 100 MHz).
+ * Each step is proven against blocks read at the identification clock before anything depends on
+ * it, and a failure falls back to the last setting that read back correctly.
+ * ------------------------------------------------------------------------- */
+
+#define SDHCI_TM_AUTO_CMD12 (1u << 2)
+#define SDHCI_TM_MULTI (1u << 5)
+/* Data timeout, data CRC, data end bit, Auto CMD and ADMA errors (EIS bits 4, 5, 6, 8, 9). */
+#define SDHCI_EIS_DATA_ERRORS 0x0370u
+
+#define EMMC_RUN_BLOCKS 256u
+#define EMMC_RUN_BYTES (EMMC_RUN_BLOCKS * 512u)
+/* One descriptor per page, two where a virtual page straddles two physical ones. */
+#define EMMC_RUN_DESCRIPTORS (2u * (EMMC_RUN_BYTES / 4096u) + 1u)
+#define EMMC_CHECK_BLOCKS 64u
+
+const unsigned sirius_emmc_run_blocks = EMMC_RUN_BLOCKS;
+volatile uint32_t sirius_emmc_rate_khz = 400u;
+
+static uint8_t emmc_run_buffer[EMMC_RUN_BYTES] __attribute__((aligned(4096)));
+static uint8_t emmc_run_table[1024] __attribute__((aligned(1024)));
+static uint8_t emmc_reference[EMMC_CHECK_BLOCKS * 512u];
+static uint32_t emmc_rca;
+static bool emmc_multi;
+static uint16_t emmc_last_eis;
+/* EIS bits a known-good transfer already leaves set; they are not treated as errors. */
+static uint16_t emmc_eis_baseline;
+
+static const struct {
+	uint32_t khz;
+	uint32_t cfg, m, n, d;
+	uint8_t timing;         /* the EXT_CSD HS_TIMING the rate needs at least */
+} emmc_rates[] = {
+	{ 25000u, 0x260bu, 1u, 0xfeu, 0xfeu, 0u },      /* GPLL0_EVEN / 6 * 1/2: default speed */
+	{ 50000u, 0x060bu, 0u, 0u, 0u, 1u },            /* GPLL0_EVEN / 6: high speed */
+	{ 100000u, 0x010bu, 0u, 0u, 0u, 2u },           /* GPLL0_MAIN / 6: HS200 timing, no tuning */
+};
+
+/* Walks emmc_run_buffer in physically contiguous pieces, cleans and invalidates each piece and,
+ * when table is given, writes one ADMA2 descriptor per piece. Returns the piece count, 0 when the
+ * buffer cannot be described (no translation, above 4 GiB, too many pieces). */
+static unsigned
+emmc_run_walk(unsigned bytes, uint8_t *table)
+{
+	vm_offset_t va = (vm_offset_t)emmc_run_buffer;
+	unsigned entries = 0;
+	for (unsigned done = 0; done < bytes;) {
+		vm_offset_t pa = kvtophys(va + done);
+		if (pa == 0 || (pa >> 32) != 0 || entries == EMMC_RUN_DESCRIPTORS) {
+			return 0;
+		}
+		unsigned span = 4096u - (unsigned)(pa & 4095u);
+		unsigned vspan = 4096u - (unsigned)((va + done) & 4095u);
+		if (vspan < span) {
+			span = vspan;
+		}
+		if (span > bytes - done) {
+			span = bytes - done;
+		}
+		flush_dcache64((addr64_t)pa, span, TRUE);
+		if (table != 0) {
+			uint8_t *desc = table + 8u * entries;
+			*(volatile uint16_t *)(desc + 0) = ADMA2_TRAN_VALID;
+			*(volatile uint16_t *)(desc + 2) = (uint16_t)span;
+			*(volatile uint32_t *)(desc + 4) = (uint32_t)pa;
+		}
+		entries++;
+		done += span;
+	}
+	return entries;
+}
+
+/* CMD18 (READ_MULTIPLE_BLOCK) with Auto-CMD12 into emmc_run_buffer. Quiet: the caller decides
+ * what a failure means. */
+static int
+emmc_run_read(uint32_t lba, unsigned blocks)
+{
+	if (blocks < 2 || blocks > EMMC_RUN_BLOCKS) {
+		return -1;
+	}
+	vm_offset_t raw = kvtophys((vm_offset_t)emmc_run_table);
+	if (raw == 0) {
+		return -1;
+	}
+	vm_offset_t table_pa = (raw + 127u) & ~(vm_offset_t)127u;
+	uint8_t *table = emmc_run_table + (table_pa - raw);
+	unsigned entries = emmc_run_walk(blocks * 512u, table);
+	/* The table itself must be one physical run: the engine walks it by physical address. */
+	if (entries == 0 || (table_pa - raw) + 8u * entries > sizeof(emmc_run_table) ||
+	    kvtophys((vm_offset_t)(table + 8u * entries - 1u)) != table_pa + 8u * entries - 1u) {
+		return -1;
+	}
+	*(volatile uint16_t *)(table + 8u * (entries - 1u)) = (uint16_t)(ADMA2_TRAN_VALID | ADMA2_END);
+	__asm__ volatile ("dsb sy" ::: "memory");
+	flush_dcache64((addr64_t)table_pa, 8u * entries, TRUE);
+	if (emmc_clear_command_line() != 0) {
+		return -1;
+	}
+	emmc_prepare_transfer();
+	sdhci_write8(SDHCI_HOST_CONTROL, (uint8_t)((sdhci_read8(SDHCI_HOST_CONTROL) & 0x27u) | 0x10u));
+	sdhci_write32(SDHCI_ADMA_ADDRESS, (uint32_t)table_pa);
+	sdhci_write32(SDHCI_ADMA_ADDRESS_HI, 0u);
+	sdhci_write16(SDHCI_BLOCK_SIZE, 512u);
+	sdhci_write16(SDHCI_BLOCK_COUNT, (uint16_t)blocks);
+	uint16_t mode = (uint16_t)(SDHCI_TM_READ | SDHCI_TM_BLOCK_COUNT_ENABLE | SDHCI_TM_DMA |
+	    SDHCI_TM_MULTI | SDHCI_TM_AUTO_CMD12);
+	sdhci_write16(SDHCI_TRANSFER_MODE, mode);
+	if ((sdhci_read16(SDHCI_TRANSFER_MODE) & mode) != mode) {
+		return -1;
+	}
+	if (sdhci_command((uint16_t)((18u << 8) | SDHCI_CMD_DATA_PRESENT | SDHCI_CMD_RESP_48 |
+	    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), lba) != 0) {
+		return -1;
+	}
+	/* Generous enough for the slowest clock this may run at (400 kHz, 1.3 ms per block). */
+	int done = sdhci_wait(SDHCI_INT_TRANSFER_COMPLETE, 200000u + 20000u * blocks);
+	emmc_last_eis = sdhci_read16(SDHCI_ERR_INT_STATUS);
+	sdhci_write32(SDHCI_INT_STATUS, 0xffffffffu);
+	if (done <= 0 || (emmc_last_eis & SDHCI_EIS_DATA_ERRORS & (uint16_t)~emmc_eis_baseline) != 0) {
+		return -1;
+	}
+	(void)emmc_run_walk(blocks * 512u, 0);
+	return 0;
+}
+
+/* After a failed transfer: reset the command and data circuits and stop the card if it is still
+ * sending, so the next command finds it in the transfer state. */
+static void
+emmc_recover(void)
+{
+	sdhci_write8(SDHCI_SOFTWARE_RESET, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
+	for (unsigned waited = 0; waited < 20000; waited += 10) {
+		if ((sdhci_read8(SDHCI_SOFTWARE_RESET) & (SDHCI_RESET_CMD | SDHCI_RESET_DATA)) == 0) {
+			break;
+		}
+		spin_us(10);
+	}
+	/* CMD12 (STOP_TRANSMISSION) as an abort command, R1b. A card that is already in the transfer
+	 * state rejects it, which is harmless. */
+	if (sdhci_command((uint16_t)((12u << 8) | (3u << 6) | SDHCI_CMD_RESP_48_BUSY |
+	    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), 0u) == 0) {
+		(void)sdhci_wait(SDHCI_INT_TRANSFER_COMPLETE, 100000);
+	}
+	sdhci_write32(SDHCI_INT_STATUS, 0xffffffffu);
+	(void)emmc_clear_command_line();
+}
+
+static bool
+emmc_matches_reference(const uint8_t *data, unsigned first, unsigned blocks)
+{
+	const uint8_t *expected = emmc_reference + 512u * first;
+	for (unsigned i = 0; i < 512u * blocks; i++) {
+		if (data[i] != expected[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/* Is the current card clock usable? The reference range read back through the path the driver
+ * will use (runs when they work, single blocks otherwise) must match byte for byte. */
+static bool
+emmc_rate_ok(void)
+{
+	if (emmc_multi) {
+		if (emmc_run_read(0u, EMMC_CHECK_BLOCKS) != 0) {
+			emmc_recover();
+			return false;
+		}
+		return emmc_matches_reference(emmc_run_buffer, 0u, EMMC_CHECK_BLOCKS);
+	}
+	uint8_t block[512];
+	for (unsigned i = 0; i < EMMC_CHECK_BLOCKS; i++) {
+		if (sdhci_read_block_adma2(i, block) != 0) {
+			emmc_recover();
+			return false;
+		}
+		if (!emmc_matches_reference(block, i, 1u)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/* CMD6 SWITCH, write byte HS_TIMING (EXT_CSD 185) = 1: the card leaves default-speed timing so the
+ * clock may exceed 26 MHz. R1b, so wait for the end of busy, then check SWITCH_ERROR and the state
+ * with CMD13. */
+static bool
+emmc_switch_hs(void)
+{
+	if (sdhci_command((uint16_t)((6u << 8) | SDHCI_CMD_RESP_48_BUSY | SDHCI_CMD_CRC_CHECK |
+	    SDHCI_CMD_INDEX_CHECK), (3u << 24) | (185u << 16) | (1u << 8)) != 0) {
+		emmc_recover();
+		return false;
+	}
+	(void)sdhci_wait(SDHCI_INT_TRANSFER_COMPLETE, 500000);
+	sdhci_write32(SDHCI_INT_STATUS, 0xffffffffu);
+	uint32_t status[4] = { 0, 0, 0, 0 };
+	if (sdhci_command_capture((uint16_t)((13u << 8) | SDHCI_CMD_RESP_48 | SDHCI_CMD_CRC_CHECK |
+	    SDHCI_CMD_INDEX_CHECK), emmc_rca << 16, status) != 0) {
+		return false;
+	}
+	return (status[0] & (1u << 7)) == 0 && ((status[0] >> 9) & 0xfu) == 4u;
+}
+
+static void
+emmc_speed_up(void)
+{
+	unsigned want = 0;
+	if (!PE_parse_boot_argn("sirius_emmc_hs", &want, sizeof(want)) || want == 0) {
+		return;
+	}
+	if (want > sizeof(emmc_rates) / sizeof(emmc_rates[0])) {
+		want = sizeof(emmc_rates) / sizeof(emmc_rates[0]);
+	}
+	/* The reference: the first blocks of the disk at the identification clock, single blocks,
+	 * the path every boot so far has read the root through. */
+	for (unsigned i = 0; i < EMMC_CHECK_BLOCKS; i++) {
+		if (sdhci_read_block_adma2(i, emmc_reference + 512u * i) != 0) {
+			ring_puts("EMMC fast: no reference read, staying at 400 kHz\r\n");
+			emmc_recover();
+			return;
+		}
+	}
+	uint8_t ext[512];
+	unsigned timing = 0;
+	if (sdhci_read_adma2(8u, 0u, ext) == 0) {
+		timing = ext[185];
+		ring_puts("EMMC ext_csd rev=");
+		ring_dec(ext[192]);
+		ring_puts(" width=");
+		ring_dec(ext[183]);
+		ring_puts(" timing=");
+		ring_dec(ext[185]);
+		ring_puts(" type=");
+		ring_hex(ext[196], 2);
+		ring_puts(" hc=");
+		ring_hex(sdhci_read8(SDHCI_HOST_CONTROL), 2);
+		ring_puts(" hc2=");
+		ring_hex(sdhci_read8(SDHCI_HOST_CONTROL2), 2);
+		ring_puts("\r\n");
+	} else {
+		ring_puts("EMMC ext_csd read failed\r\n");
+		emmc_recover();
+	}
+	/* Runs are proven at the identification clock first, so a failure here says nothing about
+	 * the clock. The first run ignores the error status; if its data is right, whatever error
+	 * bits it left are this controller's baseline, and a second run has to pass with them. */
+	emmc_eis_baseline = 0xffffu;
+	if (emmc_run_read(0u, EMMC_CHECK_BLOCKS) == 0 &&
+	    emmc_matches_reference(emmc_run_buffer, 0u, EMMC_CHECK_BLOCKS)) {
+		emmc_eis_baseline = (uint16_t)(emmc_last_eis & SDHCI_EIS_DATA_ERRORS);
+		emmc_multi = emmc_run_read(0u, EMMC_CHECK_BLOCKS) == 0 &&
+		    emmc_matches_reference(emmc_run_buffer, 0u, EMMC_CHECK_BLOCKS);
+	}
+	if (!emmc_multi) {
+		emmc_recover();
+	}
+	ring_puts("EMMC multi=");
+	ring_puts(emmc_multi ? "ok" : "off");
+	ring_puts(" eis=");
+	ring_hex(emmc_last_eis, 4);
+	ring_puts(" baseline=");
+	ring_hex(emmc_eis_baseline, 4);
+	ring_puts("\r\n");
+
+	unsigned good = 0;              /* rates proven so far; 0 = still the identification clock */
+	bool last_failed = false;
+	for (unsigned step = 0; step < want; step++) {
+		if (timing < emmc_rates[step].timing) {
+			/* Default timing allows 26 MHz at most: ask the card for high speed first. HS200
+			 * needs tuning, so a card that is not already in it stops below 100 MHz. */
+			if (emmc_rates[step].timing == 1u && timing == 0u && emmc_switch_hs()) {
+				timing = 1u;
+			} else {
+				break;
+			}
+		}
+		emmc_program_rate(emmc_rates[step].cfg, emmc_rates[step].m, emmc_rates[step].n,
+		    emmc_rates[step].d);
+		bool ok = emmc_rate_ok();
+		ring_puts("EMMC rate ");
+		ring_dec(emmc_rates[step].khz);
+		ring_puts(" kHz ");
+		ring_puts(ok ? "ok" : "failed");
+		ring_puts("\r\n");
+		if (!ok) {
+			last_failed = true;
+			break;
+		}
+		good = step + 1u;
+	}
+	/* Back to the last rate that read back correctly, and prove it once more. */
+	if (last_failed && good != 0u) {
+		emmc_program_rate(emmc_rates[good - 1u].cfg, emmc_rates[good - 1u].m,
+		    emmc_rates[good - 1u].n, emmc_rates[good - 1u].d);
+		if (!emmc_rate_ok()) {
+			good = 0u;
+		}
+	}
+	if (good == 0u) {
+		(void)emmc_set_card_clock_400k();
+		if (!emmc_rate_ok()) {
+			emmc_multi = false;
+		}
+		sirius_emmc_rate_khz = 400u;
+	} else {
+		sirius_emmc_rate_khz = emmc_rates[good - 1u].khz;
+	}
+	ring_puts("EMMC fast rate=");
+	ring_dec(sirius_emmc_rate_khz);
+	ring_puts(" kHz multi=");
+	ring_puts(emmc_multi ? "on" : "off");
+	ring_puts(" run=");
+	ring_dec(EMMC_RUN_BLOCKS);
+	ring_puts("\r\n");
+}
+
 /* Idempotent: maps the windows, sets the I/O voltage, programs the 400 kHz card clock, finds the
  * card's RCA and selects it. Returns 0 when a block read can be issued. */
 int
@@ -1283,13 +1638,19 @@ sirius_emmc_prepare(void)
 			sirius_emmc_total_blocks = last + 1;
 		}
 	}
-	uint32_t status[1] = { 0 };
+	/* sdhci_command_capture() stores all four response words. */
+	uint32_t status[4] = { 0, 0, 0, 0 };
 	for (uint32_t rca = 1; rca <= 8; rca++) {
 		if (sdhci_command_capture((uint16_t)((13u << 8) | SDHCI_CMD_RESP_48 |
 		    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), rca << 16, status) == 0) {
 			(void)sdhci_command_capture((uint16_t)((7u << 8) | SDHCI_CMD_RESP_48_BUSY |
 			    SDHCI_CMD_CRC_CHECK | SDHCI_CMD_INDEX_CHECK), rca << 16, status);
+			emmc_rca = rca;
 			sirius_emmc_ready = true;
+			/* From here on the block driver reads: quiet transfers, and the clock this file
+			 * just reset to 400 kHz goes back up as far as it reads back correctly. */
+			emmc_trace = false;
+			emmc_speed_up();
 			return 0;
 		}
 	}
@@ -1313,6 +1674,42 @@ sirius_emmc_read_block(uint64_t lba, void *buffer)
 	}
 	for (unsigned i = 0; i < 512; i++) {
 		((uint8_t *)buffer)[i] = sector[i];
+	}
+	return 0;
+}
+
+/* Reads count (1..sirius_emmc_run_blocks) consecutive 512-byte blocks: one multi-block command
+ * when runs work, single blocks otherwise. A failed run turns runs off for the rest of the boot
+ * and the same request is retried block by block. */
+int
+sirius_emmc_read_blocks(uint64_t lba, unsigned count, void *buffer)
+{
+	if (!sirius_emmc_ready && sirius_emmc_prepare() != 0) {
+		return -1;
+	}
+	if (count == 0 || count > EMMC_RUN_BLOCKS || lba + count - 1u > 0xffffffffu) {
+		return -1;
+	}
+	uint8_t *out = (uint8_t *)buffer;
+	if (emmc_multi && count > 1) {
+		if (emmc_run_read((uint32_t)lba, count) == 0) {
+			__builtin_memcpy(out, emmc_run_buffer, 512u * count);
+			return 0;
+		}
+		emmc_multi = false;
+		ring_puts("EMMC run failed lba=");
+		ring_hex((uint32_t)lba, 8);
+		ring_puts(" count=");
+		ring_dec(count);
+		ring_puts(" eis=");
+		ring_hex(emmc_last_eis, 4);
+		ring_puts(", single blocks from now on\r\n");
+		emmc_recover();
+	}
+	for (unsigned i = 0; i < count; i++) {
+		if (sdhci_read_block_adma2((uint32_t)lba + i, out + 512u * i) != 0) {
+			return -1;
+		}
 	}
 	return 0;
 }

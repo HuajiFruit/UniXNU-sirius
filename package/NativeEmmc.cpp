@@ -23,6 +23,9 @@ extern "C" {
 /* From sirius_emmc.c. prepare() is idempotent and also fills total_blocks from the GPT. */
 int sirius_emmc_prepare(void);
 int sirius_emmc_read_block(unsigned long long lba, void *buffer);
+/* Up to sirius_emmc_run_blocks blocks in one call: a single multi-block command when it works. */
+int sirius_emmc_read_blocks(unsigned long long lba, unsigned count, void *buffer);
+extern const unsigned sirius_emmc_run_blocks;
 extern unsigned long long sirius_emmc_total_blocks;
 }
 
@@ -414,24 +417,32 @@ nemmc_drain_queue(void)
 			return;
 		}
 		IOReturn result = kIOReturnSuccess;
-		for (UInt64 i = 0; i < request->count; i++) {
+		/* In runs of up to sirius_emmc_run_blocks: each run is one multi-block command, where a
+		 * block at a time was one command per 512 bytes. */
+		for (UInt64 done = 0; done < request->count;) {
+			UInt64 run = request->count - done;
+			if (run > sirius_emmc_run_blocks) {
+				run = sirius_emmc_run_blocks;
+			}
+			UInt64 lba = request->base + request->block + done;
 			nemmc_transport_lock_acquire();
-			nemmc_inflight_lba = request->base + request->block + i;
+			nemmc_inflight_lba = lba;
 			nemmc_inflight_count = (uint32_t)request->count;
 			nemmc_inflight_beat = nemmc_heartbeats;
-			int read = sirius_emmc_read_block(request->base + request->block + i, nemmc_bounce);
+			int read = sirius_emmc_read_blocks(lba, (unsigned)run, nemmc_bounce);
 			nemmc_transport_lock_release();
-			nemmc_blocks++;
+			nemmc_blocks += (uint32_t)run;
 			if (read != 0) {
-				emmc_log_hex("NEMMC transfer failed lba ", request->base + request->block + i);
+				emmc_log_hex("NEMMC transfer failed lba ", lba);
 				result = kIOReturnIOError;
 				break;
 			}
-			if (request->buffer->writeBytes(i * EMMC_BLOCK_SIZE, nemmc_bounce,
-			    EMMC_BLOCK_SIZE) != EMMC_BLOCK_SIZE) {
+			if (request->buffer->writeBytes(done * EMMC_BLOCK_SIZE, nemmc_bounce,
+			    run * EMMC_BLOCK_SIZE) != run * EMMC_BLOCK_SIZE) {
 				result = kIOReturnIOError;
 				break;
 			}
+			done += run;
 		}
 		nemmc_inflight_lba = 0;
 		nemmc_inflight_count = 0;
@@ -1017,7 +1028,7 @@ sirius_native_emmc_probe(void)
 		return;
 	}
 	if (nemmc_worker == nullptr) {
-		nemmc_bounce = (uint8_t *)IOMalloc(EMMC_BLOCK_SIZE);
+		nemmc_bounce = (uint8_t *)IOMalloc(sirius_emmc_run_blocks * EMMC_BLOCK_SIZE);
 		if (nemmc_bounce == nullptr) {
 			emmc_log("NativeEmmc: no bounce buffer\n");
 			return;
