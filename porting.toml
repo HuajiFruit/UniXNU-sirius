@@ -202,6 +202,7 @@ procedure = [
   "Read the evidence off the boot-progress console: the probe prints the GPT rows, the driver logs the block count it publishes.",
 ]
 findings = [
+  "NativeEmmc's heartbeat also carries the display copy counters every fourth beat (NEMMC fb copies, copy last/mean/max us, read last us, cache source/scanout/wimg), because past about 220 s the console has no other source for them; the storage path is unchanged.",
   "The data path works: ADMA2 reads return EFI PART from LBA 1, the GPT header parses (entries_lba=2, count=84, size=128) and 81 partitions with geometry are listed; boot 1179648..1310719, vendor 11010048..17301503, userdata 17301504..122142686.",
   "Five conditions had to hold at once: the RCG2 encoding (CFG=0x2017, M=1, N=0xfc, D=0xfb), 1.8 V I/O (the board's vqmmc), the 32-bit interrupt/error map at 0x30/0x32/0x36, the ADMA descriptor address at 0x58/0x5c rather than 0x00, and cache maintenance (flush_dcache64) because the engine reads memory and not the CPU cache.",
   "SMMU is not the blocker: the boot chain leaves it disabled (scr0=0x00230406, bit0=0) and writing S2CR hung the SoC twice, so the driver only reads SMMU state.",
@@ -297,6 +298,7 @@ procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
 ]
 findings = [
+  "With sirius-fb-wc=1 the screen looked the same and the console cannot show the copy time, so the board fork now times a read-only pass over the source (the content scan of the first 32 frames) and records the cache mode of both mappings and the source page's pmap attribute: a slow read pass with a copy of the same order means the uncached source, not the scanout stores, sets the cost.",
   "With the keystore stand-in iOS presented 14954 frames by t=3500 s, every one a full 9450 KiB CPU copy at a mean of 201.7 ms (max 209.6 ms) into the uncached scanout, about 47 MB/s: the copy ran nearly the whole time the Apple logo and progress bar were up (docs/evidence/sirius-panel-20261028-keystore.log).",
   "The late display probe calls native_keystore_probe() first, and the late archive carries KeyStoreProbe.o and NativeKeyStoreEvents.late.o, whose static constructor is removed and run by the probe between preModLoad and postModLoad.",
   "The panel gained an EMMC row (step, version, capabilities, state, clock, power, clock-branch halts) next to the USB row, so the storage bring-up is visible without a serial link.",
@@ -555,6 +557,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "The NEMMC fb rows print the copy cost on the console: copies, last/mean/max copy time, the last timed read-only pass over a source frame, and the source map options, scanout map options and the source page's pmap attribute (VM_WIMG_*), packed as source<<40 | scanout<<20 | wimg.",
   "Past about 220 s the USB console only re-mirrors fragments of the kernel log buffer: iOS userspace does not log to it, so four 280 s windows after the not_in_kdp text add no new event (docs/evidence/sirius-usb-console-20261028-fbwc.log). Later stages are read from the screen and the panel.",
   "The NEMMC heartbeat mirrors boot_progress_panic_text once it is non-empty, not only on a fatal panic: with the stand-in it carried 'pmap.c:3514 Assertion failed: not_in_kdp' at 215.7 s while the kernel kept running and iOS went on to draw its Apple logo, so --match 'NEMMC PANIC TEXT END' can end a capture of a boot that is still alive (docs/evidence/sirius-usb-console-20261028-keystore.log).",
   "KeyStoreProbe.cpp writes the AppleKeyStore counters (opens, calls, selector:count) into extension slots 0-1, which the boot page draws and BootLog exports as X0/X1.",

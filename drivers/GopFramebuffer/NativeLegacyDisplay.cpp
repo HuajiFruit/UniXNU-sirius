@@ -44,6 +44,12 @@ extern "C" {volatile uint32_t native_legacy_surfaces[14];}
 // (NativeUfs native_ufs_dpu_map). [0] flips, [1] surfaces mapped, [2] map failures, [3] latches that took over 50 ms, [4] longest latch (us),
 // [5] latch total (us, for the mean), [6] surfaces let go, [7] swaps that fell back to the copy, [8] flips back to the boot memory.
 extern "C" {volatile uint32_t native_legacy_direct[9];}
+// sirius board fork: what the CPU copy costs, split for the USB heartbeat (package/NativeEmmc.cpp). [0] the last read-only pass over a
+// source frame (the content scan of the first 32 frames) in counter ticks, [1] how many were timed; the cache mode (kIOMapCacheMask bits)
+// the source surface and the scanout mappings actually received.
+extern "C" {volatile uint64_t sirius_fb_read[2];volatile uint32_t sirius_fb_source_cache,sirius_fb_scanout_cache,sirius_fb_source_wimg;}
+// The pmap's cache attribute (VM_WIMG_*) of a physical page: what the source surface really is, whatever its map options say.
+extern "C" unsigned int pmap_cache_attributes(unsigned int pn);
 extern "C" uint32_t native_ufs_dpu_map(unsigned slot,const uint64_t *pages,unsigned count) __attribute__((weak_import));
 extern "C" volatile uint32_t native_ufs_dpu_state __attribute__((weak_import));
 static void noteSurface(OSObject *surface,IOMemoryDescriptor *memory)
@@ -446,6 +452,8 @@ public:
         if(!source || !source->getVirtualAddress() || source->getLength()<allocation) {
             OSSafeReleaseNULL(source);native_legacy_transfer_observed(kIOReturnNoMemory,request,0);return;
         }
+        sirius_fb_source_cache=(uint32_t)(source->getMapOptions()&kIOMapCacheMask);
+        if(uint64_t physical=source->getPhysicalAddress())sirius_fb_source_wimg=pmap_cache_attributes((unsigned int)(physical>>12));
         if(!native_legacy_copy_layout(reinterpret_cast<volatile void *>(bootMapping->getVirtualAddress()),
             bootMapping->getLength(),video.v_rowBytes,reinterpret_cast<const void *>(source->getVirtualAddress()),
             source->getLength(),sourceStride,width,height)) {
@@ -455,7 +463,11 @@ public:
         if(scanBudget) {
             --scanBudget;
             uint64_t scan[5];
-            if(native_legacy_frame_scan(reinterpret_cast<const void *>(source->getVirtualAddress()),source->getLength(),sourceStride,width,height,scan))
+            uint64_t readStart,readEnd;__asm__ volatile("isb\n\tmrs %0, cntpct_el0":"=r"(readStart));
+            bool scanned=native_legacy_frame_scan(reinterpret_cast<const void *>(source->getVirtualAddress()),source->getLength(),sourceStride,width,height,scan);
+            __asm__ volatile("isb\n\tmrs %0, cntpct_el0":"=r"(readEnd));
+            sirius_fb_read[0]=readEnd-readStart;sirius_fb_read[1]=sirius_fb_read[1]+1;
+            if(scanned)
                 native_legacy_frame_observed(0,scan[0],scan[1],scan[2],scan[3],scan[4]);
             uint32_t colors[4];uint64_t counts[4],other=0;
             if(native_legacy_frame_colors(reinterpret_cast<const void *>(source->getVirtualAddress()),source->getLength(),sourceStride,width,height,colors,counts,&other))
@@ -636,6 +648,7 @@ public:
         PE_parse_boot_argn("sirius-fb-wc",&writeCombine,sizeof(writeCombine));
         IOMemoryMap *mapping=provider->mapDeviceMemoryWithIndex(0,writeCombine==1?kIOMapWriteCombineCache:kIOMapInhibitCache);
         if(!mapping)return false;
+        sirius_fb_scanout_cache=(uint32_t)(mapping->getMapOptions()&kIOMapCacheMask);
         bool valid=mapping->getVirtualAddress() && mapping->getPhysicalAddress()==video.v_baseAddr &&
                    mapping->getLength()==video.v_rowBytes*video.v_height;
         if(valid) {

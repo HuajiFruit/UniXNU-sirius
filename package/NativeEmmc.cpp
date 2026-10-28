@@ -128,6 +128,14 @@ static bool nemmc_panic_dumped;
 extern "C" char boot_progress_panic_text[2048];
 volatile uint32_t nemmc_heartbeats;
 
+/* What a presented frame costs (package/LegacyDisplayProbe.cpp and the GopFramebuffer board fork): copies, their time, a read-only
+ * pass over the source and the cache modes of both mappings. The panel shows only some of these and only while it repaints; the
+ * console has them on every fourth beat. */
+extern "C" volatile uint64_t native_legacy_copy_n, native_legacy_copy_last, native_legacy_copy_max, native_legacy_copy_sum
+    __attribute__((weak_import));
+extern "C" volatile uint64_t sirius_fb_read[2] __attribute__((weak_import));
+extern "C" volatile uint32_t sirius_fb_source_cache, sirius_fb_scanout_cache, sirius_fb_source_wimg __attribute__((weak_import));
+
 /* Post-exec probes (patches/xnu/sirius-post-exec-trace.patch). The init exec returns 0 and then
  * the stack asks for no block again, which cannot be told apart from "the launchd thread never
  * started" without looking at the other side of the exec. The kernel writes these counters from
@@ -251,6 +259,22 @@ nemmc_heartbeat_thread(void *, wait_result_t)
 		emmc_log_dec("NEMMC probe init returns ", sirius_init_syscall_returns);
 		emmc_log_dec("NEMMC probe init asts ", sirius_init_asts);
 		emmc_log_dec("NEMMC probe init faults ", sirius_fault_total);
+		if (&native_legacy_copy_n && &sirius_fb_read && (nemmc_heartbeats % 4) == 0) {
+			uint64_t frequency = 0, copies = native_legacy_copy_n;
+
+			__asm__ volatile ("mrs %0, cntfrq_el0" : "=r"(frequency));
+			if (frequency == 0) {
+				frequency = 19200000;
+			}
+			emmc_log_dec("NEMMC fb copies ", copies);
+			emmc_log_dec("NEMMC fb copy last us ", native_legacy_copy_last * 1000000 / frequency);
+			emmc_log_dec("NEMMC fb copy mean us ", copies ? native_legacy_copy_sum / copies * 1000000 / frequency : 0);
+			emmc_log_dec("NEMMC fb copy max us ", native_legacy_copy_max * 1000000 / frequency);
+			emmc_log_dec("NEMMC fb read last us ", sirius_fb_read[0] * 1000000 / frequency);
+			emmc_log_dec("NEMMC fb reads timed ", sirius_fb_read[1]);
+			emmc_log_hex("NEMMC fb cache source/scanout/wimg ",
+			    ((uint64_t)sirius_fb_source_cache << 40) | ((uint64_t)sirius_fb_scanout_cache << 20) | sirius_fb_source_wimg);
+		}
 		{
 			static int reported;
 
