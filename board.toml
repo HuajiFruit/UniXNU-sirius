@@ -133,6 +133,8 @@ kernel_args = [
   "offline-legacy-validate=1",      # validate swap requests
   "offline-legacy-transfer=1",      # transfer framebuffers
   "offline-legacy-cpu-present=1",   # CPU pixel copy presentation
+  "sirius-fb-wc=1",                 # drivers/GopFramebuffer (board fork): map the scanout write-combined; uncached,
+                                    # each full-frame CPU copy took 180-210 ms
   "offline-legacy-phase=4",         # phase 4 display subsystem registration under /arm-io
   "offline-mobile-graphics-client=1", # support MobileGraphics client
   "offline-mobile-graphics-load=1", # load MobileGraphics
