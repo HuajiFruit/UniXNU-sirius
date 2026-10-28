@@ -92,7 +92,8 @@ windows = [
 # Apple-signed OS binaries instead of every exec being refused.
 trust_cache_sha256 = ["7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7"]
 volume = "SIRIUSESP"
-size_mib = 512                      # the 256 MiB Data seed travels in this volume (the vendor partition is 3 GiB)
+size_mib = 256                      # 512 when a RAM Data seed (--data-ramdisk) travels in the volume; the persistent
+                                    # Data container lives in userdata instead
 loader = "payload"                  # not "firmware": unixnu.toml gets [[driver]] Payloads/DarwinBoot.efi
 title = "sirius first boot: XNU to console"
 dram_size = "0x17d6c0000"
@@ -115,6 +116,9 @@ kernel_args = [
   "launchdsuffix=release",          # DEVELOPMENT: load /sbin/launchd directly and report its errno
   "amfi_get_out_of_my_way=1",       # bring-up: let init exec from an unverified root
   "sirius-allow-unverified=1",      # bring-up: NativeEmmc authorizes the SystemOS union mount (no owner policy)
+  "sirius-data-write=1",            # NativeEmmc publishes the persistent Data container behind the root image in
+                                    # userdata read-write (scripts/make-data-window-image.py puts it there); the
+                                    # transport refuses writes anywhere else
   "sheng-disable-watchdogd=1",      # package/BootWatchdogPolicy.c disables com.apple.watchdogd before launchd: it traps
                                     # (brk #1) without a watchdog backend and its exit panics the boot
   "sheng-lite=1",                   # the same policy also disables the network/iCloud/photo daemons this phone has no use
