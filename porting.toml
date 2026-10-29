@@ -358,7 +358,7 @@ evidence = [
 
 [[area]]
 id = "input"
-status = "planned"
+status = "device-verified"
 components = ["ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
 paths = ["docs/HANDOFF.zh-CN.md", "package/sirius_touch.c", "scripts/build-sirius-touch.py", "package/SiriusHidProbe.cpp", "scripts/build-sheng-hid-input.py", "scripts/data/hid-device-abi.json"]
 inputs = [
@@ -372,6 +372,7 @@ procedure = [
   "Follow the input guide once a touch controller is known, then select an implementation.",
 ]
 findings = [
+  "Confirmed on the phone (kernel 67b65eb / payload 1611d2a): Setup reacts to touch. The touch path is the FTS521 driver (package/sirius_touch.c) feeding ShengHidInput's combined keyboard+touch device (package/SiriusHidProbe.cpp, sirius-touch-hid=1, sheng-touch-hid=1), taken by the in-kernel IOHIDEventDriver with dk=0.",
   "Kernel 67b65eb (commit fb84613) / payload 1611d2a, combined device, dk=0 (docs/evidence/sirius-touch-hid-20261029-combined.log): the in-kernel IOHIDEventDriver attaches and is published as the built-in touch screen; the chip reads 31072 down/up transitions. At 328 s about twenty daemons exit cleanly and restart (languageassetd starts), and at 345 s SpringBoard and every process it hosts (Setup, PosterBoard, the poster and widget extensions) exit with signal 9, exit-reason namespace 10 (SpringBoard) and code 0x5bc1ea44; SpringBoard starts again at once and Setup at 376 s, after which the system stays quiet to the end of the capture (about 860 s). That sequence looks like Setup applying a choice made by touch (likely the language), not yet confirmed from the screen.",
   "Kernel b5a62b2 (commit 96cfbd3) / payload 7656d0e, dk=0 (docs/evidence/sirius-touch-hid-20261029-dk0.log; the console stayed up for all four windows): the touch-only device starts but no event driver attaches below it in about 20 minutes. This kernelcache's in-kernel IOHIDEventDriver has no digitizer personality (game-controller pointers 1/5 and 1/4, Peppy display 0xc/1, buttons 0xb/1, keyboards 1/6 and 1/7, sensor 0xff0c/3), so a Digitizer/Touch Screen device is only matched by the DriverKit AppleUserHIDEventService. SiriusHidProbe.cpp therefore publishes sheng's default combined device (native_hid_input_allocate with sheng-touch-hid=1: keyboard collection first, then the touch screen), whose keyboard usage matches HID Keyboard Driver; native_hid_live_checkpoint then publishes Digitizer/Touch Screen as the primary usage on the event service for backboardd. sirius-touch-hid=2 keeps the touch-only device.",
   "Kernel 985facb / payload 8e16490 (dk=0, commit 75efc08): no DK lines any more and the touch screen device starts, but touches still have no effect on Setup (panel photo at t=330 s); the USB console stopped at about 170 s, before Setup, so whether the in-kernel IOHIDEventDriver attached and whether reports reached it is not known. The live banner now carries a TOUCH row: chip stage, FTS events read, contacts begun, I2C errors, the iOS device stage, the class of the event driver attached below it (or none) and the touch reports handed to it with the last handleReport result.",
@@ -390,12 +391,14 @@ completion = [
   "Touches map to the display with stable contacts and the volume keys produce the expected HID reports.",
 ]
 limits = [
-  "No touch support and no IOHIDDevice provider.",
+  "No hardware buttons yet (native_buttons_set_sink is a no-op), and dk=0 keeps every DriverKit dext off; why the AppleUserHIDDrivers server is never launched is not known.",
 ]
 next_action = [
-  "Identify the touch controller from the vendor DTS and the panel firmware.",
+  "Hardware buttons (power and volume) through native_buttons_set_sink, then find why the DriverKit HID server is never launched so dk=0 can go.",
 ]
-evidence = []
+evidence = [
+  { kind = "device", reference = "docs/evidence/sirius-touch-hid-20261029-combined.log", command = "fastboot flash vendor tmp/payload-AD-combined.img; fastboot reboot; four python scripts/capture-usb-console.py --follow --duration 280 --idle-stop 20 windows; touch the Setup screen", revision = "fb84613a61cf55e48e30f2e126fd6b3183820def", result = "Kernel 67b65eb / payload 1611d2a: the in-kernel IOHIDEventDriver attaches to the combined keyboard+touch device and is published as the built-in touch screen; 31072 touch transitions read; Setup reacts to touch (confirmed on the phone) and applies a choice (SpringBoard restart at 345 s)." },
+]
 
 [[area]]
 id = "gpu"

@@ -20,44 +20,36 @@ Read [Where the boot stands](#where-the-boot-stands) first, then `README.md`,
 
 ## Where the boot stands
 
-Kernel `8f831f8` (commit `076f63c`), payload `51c18b0`; seconds after `fastboot reboot`. The
-evidence is `docs/evidence/sirius-usb-console-20261028-display.log` (console) and
-`docs/evidence/sirius-panel-20261028-display.log` (the on-screen panel); `porting.toml` has the
+Kernel `67b65eb` (commit `fb84613`), payload `1611d2a`; seconds after `fastboot reboot`. The
+evidence is in `docs/evidence/` (`sirius-touch-hid-20261029-combined.log`,
+`sirius-gpu-20261029-phase1.log`, `sirius-spawn-20261028-ephemeral.log`); `porting.toml` has the
 rest.
 
 | Stage | State |
 | --- | --- |
 | U-Boot → UniXNU.efi → DarwinBoot → XNU | works; DarwinBoot gives XNU a 1 GiB window (`owned_memory_size`) |
+| CPU | A55s at 1708 MHz, A75s requested at 2208 MHz (`sirius-cpufreq=1`) |
 | eMMC | 50 MHz, 8-bit HS SDR, 256-block ADMA2, about 30 MiB/s |
-| Root, launchd | APFS OS volume with the SystemOS cryptex union-mounted; launchd runs (PAN build); dyld maps the shared cache after about 100 s of hash verification |
-| Data | 8 GiB persistent APFS Data volume on eMMC at LBA 35627008 behind the root image (`disk3s1`, OwnerData, `0C28586B…`); no ENOSPC |
-| Boot tasks | all run; "Early boot complete" at 174.6 s |
-| Display | `NativeLegacyDisplay` registers the U-Boot GOP framebuffer (1080x2240 at `0x9c000000`, rowBytes 4320) at 51.1 s; a client opens it at 189.2 s; display power on at 221.5 s, off at 260.5 s |
-| Presentation | 8 swaps accepted, 6 full frames CPU-copied (180–190 ms each), **all black**; `gpu offers=0`; IOMFB logs `default_fb_surface: No Default FB Surface found` at 224.9 s |
-| Userspace | no panic after 24.5 min; SpringBoard no longer crash-loops; liveactivitiesd traps (SIGTRAP) at the same PC every launch; one xpcproxy exits 78 |
+| Root, launchd, Data | APFS OS volume + SystemOS cryptex; 8 GiB persistent Data volume on eMMC (`disk3s1`) |
+| Data migration | skipped: `/chosen/ephemeral-storage = 1` (`[adt.chosen.u32]`); its plugins waited on missing services for over 36 minutes. The staged system apps are not installed while it is set |
+| UI | iOS reaches the Setup assistant ("hello", status bar, clock) at about 220–360 s, CPU-rendered: the GOP framebuffer is copied by the CPU (about 9–10 ms a frame, write-combined scanout, cached source) |
+| Touch | **works**: FTS521 on QUP1 SE1 (`package/sirius_touch.c`, LDO6 through RPMh), published to iOS by `package/SiriusHidProbe.cpp` as ShengHidInput's combined keyboard+touch device; the in-kernel IOHIDEventDriver takes it (`dk=0`, `sheng-touch-hid=1`). Setup reacts to touch |
+| GPU | Adreno 616 phase 1 done (`package/sirius_gpu.c`): CX GDSC, GPU bus clocks, GMU clock at 200 MHz, GMU and GPU SMMU registers readable. No firmware loaded yet, no Metal device |
+| Known issues | the wallpaper poster extensions crash-loop (Kaleidoscope sig 11, Aegir sig 6); the USB console often stops after a few minutes while the phone keeps running; user stackshots are refused (`validation_disables=0x10`) because a stackshot panicked on this port |
 
-**Update (kernel `1a8a151`, payload `6b03df1`, commit `f5b179d`):** with the AppleKeyStore stand-in
-(`AppleKeyStoreState`, `offline-key-events=1 sheng-aks=1`) iOS draws its Apple logo with a moving
-progress bar, slowly. `pmap.c:3514 Assertion failed: not_in_kdp` lands in the panel's panic
-buffer at 215.7 s without stopping the kernel; capture without `--match` to see past it
-(`docs/evidence/sirius-usb-console-20261028-keystore.log`). The stage now is **speed**: no CPU
-frequency driver, a 180–190 ms CPU copy per frame, 50 MHz eMMC, a 1 GiB window.
+Next, in order:
 
-Before the stand-in the stop was: nothing draws into the presented frames. Next, in order:
-
-1. **Black frames.** There is no Adreno GPU driver, so CoreAnimation gets no GPU work done.
-   The port starts from Adreno6xx (RigoLigoRLC/unixnu-adreno6xx) with an A616 backend; the
-   hardware values, the differences from its A642L backend and the milestones are in the
-   `porting.toml` gpu area. The live panel (`package/BootProgress.c` `crash_banner`) shows the
-   SWAP/FB/GPU counters on screen; read it after each boot.
-2. **Copy cost.** 180–190 ms per full-frame CPU copy caps the screen at about 5 fps.
-3. **liveactivitiesd** traps at PC `0x1ca09a4f8`; symbolize it against the 21H461 shared cache.
-4. **Touch:** an ST FTS521 at I2C 0x49 on QUP1 SE1 (57UU/linux-sirius `sdm710-xiaomi-sirius.dts`, driver
-   `drivers/input/touchscreen/fts_521`); `package/sirius_touch.c` is the probe, ShengHidInput the iOS side.
-5. Later: DDR52/HS200 eMMC (`EXT_CSD type 0x57`; DDR52 needs no tuning); more than a 1 GiB
-   window below 4 GiB; a clean upstream PR to 57UU (broken CI, no PAN/eMMC/Data/display fixes);
-   `CONFIG_XNU_OWNER_DATA_VOLUME_UUID` still names the RAM seed `E06A21C1…`, not `0C28586B…`
-   (the driver logs the mismatch and mounts anyway).
+1. **GPU phase 2:** load `a630_gmu.bin`, boot the GMU and get HFI v1 replies (legacy A630-family
+   path). The GMU reads its HFI queues through the GPU SMMU (stream 5), so this needs a context
+   for that stream on the GPU SMMU at `0x05040000` (never the apps SMMU). Then GX, ZAP, SQE and a
+   fence (phase 3), then the Adreno6xx fork with an A616 backend and AdrenoMetal for a Metal
+   device. Hardware values and milestones are in the `porting.toml` gpu area.
+2. **Touch polish:** buttons (power and volume, through `native_buttons_set_sink`), and why the
+   DriverKit HID server is never launched (`dk=0` keeps every dext off).
+3. **Data migration:** find what its plugins wait on, so `ephemeral-storage` can go and the
+   system apps install.
+4. Later: DDR52/HS200 eMMC; more than a 1 GiB window below 4 GiB; the other drivers of
+   57UU/linux-sirius (battery, RTC, haptics, backlight, Wi-Fi, audio); a clean upstream PR to 57UU.
 
 ## Work
 
@@ -159,8 +151,7 @@ Do not repeat these; each one cost a hardware round:
 | U-Boot image | `~/Xnu4Sirius/UniXNU-sirius/uboot/boot-unixnu.img` (`bash uboot/build.sh`) |
 
 On the phone now: `boot` = `boot-unixnu.img`, `userdata` = `data-window.simg` (the 8 GiB Data
-volume), `vendor` = `~/Xnu4Sirius/flash/payload-N-display.img` (kernel `8f831f8`, payload
-`51c18b0`).
+volume), `vendor` = `tmp/payload-AD-combined.img` (kernel `67b65eb`, payload `1611d2a`).
 
 - Run WSL commands from script files: `wsl.exe -- bash -c '…'` from Git Bash loses `$variables`.
   Set `MSYS_NO_PATHCONV=1` in Git Bash, and give fastboot `\\wsl.localhost\Ubuntu-26.04\…` paths
