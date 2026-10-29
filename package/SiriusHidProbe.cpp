@@ -25,6 +25,8 @@ volatile int native_hid_input_results[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
 volatile uint32_t sirius_hid_stage;
 volatile int sirius_hid_load_status = -1, sirius_hid_meta_status = -1;
 volatile uint32_t sirius_hid_device_size;
+// The class of the event driver that attached below the touch screen device (the live banner's TOUCH row).
+char sirius_hid_driver[40];
 
 // Hooks NativeHidInput calls.
 void native_hid_input_observed(unsigned event, int result) {
@@ -63,6 +65,7 @@ extern "C" __attribute__((noinline)) void native_hid_live_checkpoint(IOService *
     IORegistryEntry *driver = findEventDriver(device, 4);
     if (!driver || publishedFor == driver || !device->getProperty("Built-In")) return;
     publishedFor = driver;
+    strlcpy(sirius_hid_driver, driver->getMetaClass()->getClassName(), sizeof(sirius_hid_driver));
     driver->setProperty("Built-In", kOSBooleanTrue);
     driver->setProperty("DisplayIntegrated", kOSBooleanTrue);
     driver->setProperty("PrimaryUsagePage", (unsigned long long)0x0d, 32);

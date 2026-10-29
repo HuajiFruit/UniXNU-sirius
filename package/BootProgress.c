@@ -156,6 +156,11 @@ extern char native_touch_rows[4][120] __attribute__((weak_import));
 extern char native_cpufreq_row[120] __attribute__((weak_import));
 extern volatile uint32_t native_hid_input_events[8] __attribute__((weak_import));
 extern volatile int native_hid_input_results[8] __attribute__((weak_import));
+// The touch path for the live banner: the FTS521 driver (package/sirius_touch.c) and the iOS touch screen device
+// (package/SiriusHidProbe.cpp): its stage, the event driver that attached and the reports handed to it.
+extern volatile uint32_t sirius_touch_state[8] __attribute__((weak_import));
+extern volatile uint32_t sirius_hid_stage __attribute__((weak_import));
+extern char sirius_hid_driver[40] __attribute__((weak_import));
 extern volatile uint32_t native_touch_loop_step __attribute__((weak_import));
 extern volatile uint32_t native_touch_seq,native_touch_count __attribute__((weak_import));
 extern volatile int native_touch_xs[12],native_touch_ys[12],native_touch_ids[12] __attribute__((weak_import));
@@ -1160,10 +1165,17 @@ static void crash_banner(unsigned now) {
       (unsigned long long)(sl-banner_sleep_late),(unsigned long long)(ti-banner_tint),(unsigned long long)(ip-banner_ipi));
     banner_sleep_n=sn;banner_sleep_sum=ss;banner_sleep_late=sl;banner_tint=ti;banner_ipi=ip;
   }
-  // The work-interval log gives its rows to the stack rows (the banner must fit the panel's height).
+  // TOUCH: chip events read and contacts begun, then the iOS device's stage, the event driver attached below it, and the
+  // touch reports handed to that driver with the last handleReport result (0 = accepted).
+  if(&sirius_touch_state && &sirius_hid_stage && &native_hid_input_events) {
+    snprintf(rows[n++],120,"TOUCH chip stage=%u events=%u contacts=%u i2c_err=%u | hid stage=%u driver=%.24s reports=%u last=%x",
+      sirius_touch_state[0],sirius_touch_state[3],sirius_touch_state[4],sirius_touch_state[5],sirius_hid_stage,
+      (&sirius_hid_driver && sirius_hid_driver[0])?sirius_hid_driver:"none",native_hid_input_events[6],(unsigned)native_hid_input_results[6]);
+  }
+  // The work-interval log gives its rows to the stack rows and the TOUCH row (the banner must fit the panel's height).
   if(!stack_rows && &native_wi_count && native_wi_count) {
     unsigned c=native_wi_count;
-    for(unsigned i=0;i<3 && i<c;++i)snprintf(rows[n++],120,"%s",native_wi_log[(c-1-i)%4]);
+    for(unsigned i=0;i<2 && i<c;++i)snprintf(rows[n++],120,"%s",native_wi_log[(c-1-i)%4]);
   }
   if(&native_cpufreq_row && native_cpufreq_row[0])snprintf(rows[n++],120,"CPU   %.110s",native_cpufreq_row);
   // The extension slots are drawn only on the boot page (display bound); the GPU slots 2-7 also go to the live banner.

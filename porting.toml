@@ -313,6 +313,7 @@ procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
 ]
 findings = [
+  "The live banner (package/BootProgress.c crash_banner) has a TOUCH row after UFS; the work-interval log keeps two rows instead of three so the banner still fits.",
   "build-native-legacy-display.py also compiles package/SiriusHidProbe.cpp and links build/sheng-hid-input/NativeHidInput.late.o and hid-original-bindings.o into the late display archive; native_legacy_display_late_probe calls sirius_hid_touch_start() (see the input area).",
   "native_legacy_display_late_probe also calls sirius_gpu_start() (package/sirius_gpu.c, sirius-gpu=1; see the gpu area).",
   "native_legacy_display_late_probe also calls sirius_touch_start() (package/sirius_touch.c, sirius-touch=1; see the input area).",
@@ -370,6 +371,7 @@ procedure = [
   "Follow the input guide once a touch controller is known, then select an implementation.",
 ]
 findings = [
+  "Kernel 985facb / payload 8e16490 (dk=0, commit 75efc08): no DK lines any more and the touch screen device starts, but touches still have no effect on Setup (panel photo at t=330 s); the USB console stopped at about 170 s, before Setup, so whether the in-kernel IOHIDEventDriver attached and whether reports reached it is not known. The live banner now carries a TOUCH row: chip stage, FTS events read, contacts begun, I2C errors, the iOS device stage, the class of the event driver attached below it (or none) and the touch reports handed to it with the last handleReport result.",
   "Kernel 985facb (commit bd74e96) / payload d7f5ce4 (docs/evidence/sirius-touch-hid-20261029.log): the touch screen device starts on IOHIDResource (metaclass status 0) and the FTS521 driver reads 3240 down/up transitions, but Setup does not react. The event driver that matched is the DriverKit AppleUserHIDEventService: \"DK: AppleUserHIDEventDriver-0x100000249 waiting for server com.apple.driverkit.AppleUserHIDDrivers-100000249\", then \"user server timeout\"; driverkitd is exec'd at 142 s but no AppleUserHIDDrivers process is ever exec'd, so no IOHIDEvent leaves the kernel. kernel_args now pass dk=0 (XNU gIODKDebug, IOUserServer.cpp: without kIODKEnable no dext personality matches, IOService.cpp:3910), so the in-kernel IOHIDEventDriver that SiriusHidProbe.cpp loads matches instead. Cost: no DriverKit driver can run while it is set; none other is needed on this board yet, and why the dext is not launched is still open.",
   "CI run 40834974797 (commit 34ee775) built the ShengHidInput objects but the final kernel link failed on one undefined symbol, _native_buttons_set_sink: NativeHidInput declares it weak_import, which a static kernel link still requires to be defined (sheng's button driver defines it). package/SiriusHidProbe.cpp now defines it as a no-op; this board has no button driver yet.",
   "ShengHidInput brings its catalog dependencies ShengNovatekTouch and QcomGeniSpi into the tree; both are source-only (no build recipe, no outputs), nothing of theirs is compiled or linked, and the record lists them in this area.",
@@ -601,6 +603,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "The live banner shows the touch path in a TOUCH row (see the input area).",
   "The HID-path lines of kernel 985facb / payload d7f5ce4 are docs/evidence/sirius-touch-hid-20261029.log.",
   "package/SiriusHidProbe.cpp defines a no-op native_buttons_set_sink for the static kernel link (see the input area).",
   "package/SiriusHidProbe.cpp logs its result as TOUCH hid lines (IOLog).",
