@@ -1,0 +1,98 @@
+# sirius, kernel 67b65eb (commit fb84613, combined keyboard+touch device, dk=0) / payload 1611d2a: HID lines and the SpringBoard restart.
+# Touch transitions read by the FTS521 driver over the four windows: 31072.
+TOUCH hid keyboard+touch device started on IOHIDResource (metaclass status 0)
+TOUCH hid event driver IOHIDEventDriver published as the built-in touch screen
+SPAWN 141s exec 26 SpringBoard
+SPAWN 141s exec 64 driverkitd
+SPAWN 146s exec 56 backboardd
+KextLog: driverkitd is not active
+KextLog: driverkitd is active
+SPAWN 216s exec 200 Setup
+SPAWN 345s exec 312 SpringBoard
+SPAWN 376s exec 335 Setup
+SPAWN 328s exec 288 languageassetd
+SPAWN 328s exec 289 backupd
+SPAWN 328s exec 290 mapspushd
+SPAWN 328s exec 291 coreidvd
+SPAWN 328s exec 292 kbd
+SPAWN 328s exec 293 tipsd
+SPAWN 328s exit 170 duetexpertd status=0 ns=0 code=0
+SPAWN 328s exit 240 coreidvd status=0 ns=0 code=0
+SPAWN 328s exit 263 HeuristicInterpreter status=0 ns=0 code=0
+SPAWN 328s exit 270 pasted status=0 ns=0 code=0
+SPAWN 328s exit 29 mediaserverd status=fe00 ns=0 code=0
+SPAWN 328s exit 51 mobiletimerd status=0 ns=0 code=0
+SPAWN 328s exit 90 audiomxd status=0 ns=0 code=0
+SPAWN 329s exec 294 mediaserverd
+SPAWN 329s exec 295 audiomxd
+SPAWN 329s exec 296 chronod
+SPAWN 329s exit 188 com.apple.SharePlay.Near status=9 ns=2 code=9
+SPAWN 329s exit 33 mediaremoted status=0 ns=0 code=0
+SPAWN 329s exit 99 chronod status=0 ns=0 code=0
+SPAWN 330s exec 297 com.apple.BarcodeSupport
+SPAWN 330s exit 181 useractivityd status=0 ns=0 code=0
+SPAWN 331s exec 298 lsd
+SPAWN 331s exit 146 followupd status=0 ns=0 code=0
+SPAWN 331s exit 93 lsd status=0 ns=0 code=0
+SPAWN 332s exec 299 com.apple.datamigrator
+SPAWN 332s exit 96 accountsd status=0 ns=0 code=0
+SPAWN 333s exec 300 sharingd
+SPAWN 333s exit 261 dataaccessd status=0 ns=0 code=0
+SPAWN 333s exit 59 sharingd status=0 ns=0 code=0
+SPAWN 334s exec 301 dataaccessd
+SPAWN 334s exec 302 accountsd
+SPAWN 334s exit 110 IMDPersistenceAgent status=0 ns=0 code=0
+SPAWN 334s exit 136 ScreenTimeAgent status=0 ns=0 code=0
+SPAWN 334s exit 150 callservicesd status=0 ns=0 code=0
+SPAWN 334s exit 39 tccd status=0 ns=0 code=0
+SPAWN 335s exit 262 ScreenshotService status=9 ns=2 code=9
+SPAWN 335s exit 31 studentd status=0 ns=0 code=0
+SPAWN 337s exec 303 tccd
+SPAWN 340s exit 179 com.apple.NeighborhoodAc status=0 ns=0 code=0
+SPAWN 340s exit 74 navd status=0 ns=0 code=0
+SPAWN 341s exit 101 akd status=0 ns=0 code=0
+SPAWN 341s exit 126 gamed status=0 ns=0 code=0
+SPAWN 341s exit 178 com.apple.FaceTime.FTCon status=9 ns=2 code=9
+SPAWN 341s exit 182 com.apple.CallKit.CallDi status=9 ns=2 code=9
+SPAWN 341s exit 247 geod status=0 ns=0 code=0
+SPAWN 341s exit 293 tipsd status=0 ns=0 code=0
+SPAWN 342s exec 304 geod
+SPAWN 342s exit 290 mapspushd status=0 ns=0 code=0
+SPAWN 343s exec 305 dmd
+SPAWN 343s exec 306 mapspushd
+SPAWN 343s exec 307 tipsd
+SPAWN 343s exec 308 coreidvd
+SPAWN 343s exit 291 coreidvd status=0 ns=0 code=0
+SPAWN 343s exit 292 kbd status=0 ns=0 code=0
+SPAWN 343s exit 302 accountsd status=0 ns=0 code=0
+SPAWN 343s exit 303 tccd status=0 ns=0 code=0
+SPAWN 344s exec 309 tccd
+SPAWN 344s exec 310 accountsd
+SPAWN 344s exec 311 lsd
+SPAWN 344s exit 298 lsd status=0 ns=0 code=0
+SPAWN 345s exec 312 SpringBoard
+SPAWN 345s exit 195 PosterBoard status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 200 Setup status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 201 com.apple.SiriTTSService status=9 ns=2 code=9
+SPAWN 345s exit 205 ShortcutsTopHitsExtensio status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 230 AccessibilityUIServer status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 235 WidgetRenderer_Default status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 236 CollectionsPoster status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 242 extensionkitservice status=9 ns=2 code=9
+SPAWN 345s exit 248 UnityPosterExtension status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 249 PridePosterExtension status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 250 GradientPosterExtension status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 251 ExtragalacticPoster status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 252 HelloPosterExtension status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 253 AegirPoster status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 254 EmojiPosterExtension status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 255 PhotosPosterProvider status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 256 MercuryPosterExtension status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 257 CollectionsPoster status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 26 SpringBoard status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 273 SiriAUSP status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 274 MauiAUSP status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 275 KonaSynthesizer status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 276 MacinTalkAUSP status=9 ns=10 code=5bc1ea44
+SPAWN 345s exit 297 com.apple.BarcodeSupport status=9 ns=2 code=9
+SPAWN 349s exit 307 tipsd status=0 ns=0 code=0
