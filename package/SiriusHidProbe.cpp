@@ -35,6 +35,9 @@ void native_hid_input_observed(unsigned event, int result) {
 }
 // The keyboard device's Home presses; this board publishes only the touch screen.
 bool native_hid_input_requested(void) { return false; }
+// NativeHidInput's hardware-button source (weak_import there, but the static kernel link still needs a definition): this board
+// has no button driver yet, so no sink is ever called. The touch screen device does not register one either.
+void native_buttons_set_sink(void (*)(void *, uint32_t), void *) {}
 }
 
 static IORegistryEntry *findEventDriver(IORegistryEntry *parent, unsigned depth) {
