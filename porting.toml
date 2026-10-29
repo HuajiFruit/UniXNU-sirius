@@ -37,6 +37,7 @@ procedure = [
   "Compile the hardware tree through the payload step (prototype: dtc -I dts -O dtb -i <soc>/dts dts/sirius.dts).",
 ]
 findings = [
+  "[payload.adt] owned_memory_size is 0xaa000000 (2.66 GiB) instead of 0x40000000 (see the memory area).",
   "kernel_args pass sirius-skip-setup=1 (see the diagnostics area).",
   "kernel_args add sheng-touch-hid=1 (NativeHidInput adds the touch collection to its combined device; see the input area).",
   "kernel_args pass dk=0 so DriverKit dexts do not match (see the input area).",
@@ -181,6 +182,7 @@ procedure = [
   "Read the MEM row of the boot-progress panel and compare it with the DTS range.",
 ]
 findings = [
+  "With SpringBoard running in the 1 GiB window the phone is very laggy (kernel 8a6e9fc / payload 5a5ba94: LOAD sys 69%, swap file creation fails at 50 s, compressor active). [payload.adt] owned_memory_size is now 0xaa000000 (2.66 GiB), nearly all of the largest free run 0x9f800000+0xae9e7000 (to 0x14e1e7000), leaving about 70 MiB of it for DarwinBoot's later allocations. Of the 6 GiB model's 0x17d6c0000 bytes from 0x80000000, the firmware's reserved regions below 0x9f800000 stay unavailable to any OS, and the 2.7 GiB from 0x14e1e7000 to 0x1fd6c0000 is not free when DarwinBoot allocates the window (what holds it is not known yet); XNU takes one contiguous window.",
   "DarwinBoot's free runs on this unit (kernel 130bf97, payload 216ef03): 0x80000000+0x5700000, 0x97c00000+0x4400000 and 0x9f800000+0xae9e7000 (2.73 GiB, crossing 4 GiB at 0x100000000); the 1 GiB window sits at 0x9f87c000. A window up to about 2.7 GiB fits that run, with the part above 0x100000000 out of the eMMC's DMA reach.",
   "A window larger than 1 GiB is bounded by the eMMC's 32-bit ADMA2: the kernel image's static descriptor and single-block buffers and the run bounce buffer (IOMalloc) must stay below 4 GiB, and sirius_emmc_read_blocks refuses a page above it; DarwinBoot takes the first free run that fits. The heartbeat now prints the window (NEMMC window base/size) and DarwinBoot's free runs (NEMMC db-runs) so the next size is chosen from the measured layout.",
   "The eMMC probe maps two register windows (GCC and SDCC1) and reads only; the payload memory map is unchanged.",

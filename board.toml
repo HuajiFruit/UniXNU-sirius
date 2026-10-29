@@ -193,10 +193,14 @@ chip_id = "8011"
 # driver's OS window carries. The same value qualifies every device record of this OS profile.
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
 # The kernel's memory: DarwinBoot gives XNU one contiguous window of this size (256 MiB without
-# it). The Data seed is held in that window and userland needs room, so 1 GiB, which also fits
-# the 4 GiB unit. The eMMC's 32-bit ADMA2 needs the window's start below 4 GiB; the driver refuses
-# a buffer above it rather than truncate the address.
-owned_memory_size = "0x40000000"
+# it), placed in the first free run that fits. The largest free run on this unit is
+# 0x9f800000+0xae9e7000 (2.73 GiB, to 0x14e1e7000; DarwinBoot's db-runs); 2.66 GiB leaves about
+# 70 MiB of it for the allocations DarwinBoot makes after the window. The window crosses 4 GiB: the
+# eMMC's 32-bit ADMA2 uses buffers allocated below 4 GiB (NativeEmmc bounce buffer with a physical
+# mask, static descriptors in the kernel image) and refuses a page above it; the USB console checks
+# its DMA address against the DWC3 address width. The firmware's reserved regions below
+# 0x9f800000 are not available to any OS; what holds the 2.7 GiB above 0x14e1e7000 is not known yet.
+owned_memory_size = "0xaa000000"
 
 # The Apple device-tree properties the OS profile does not already supply. Its [adt] tables
 # write /chosen, /product and the iPad7,1 identity (model iPad7,1, target-type J120); the board
