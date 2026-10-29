@@ -1,0 +1,37 @@
+# sirius, kernel 10cc072 (commit b3b96cd) / payload 3361ec2: the final UEFI memory map DarwinBoot wrote into /chosen/darwinboot-efi-map
+# (the 32 largest merged ranges, address order; EFI types: 0 reserved, 1 loader code, 3 boot-services code, 4 boot-services data, 5 runtime code, 6 runtime data, 7 conventional, 9 ACPI reclaim).
+NEMMC window base 000000009f87c000
+NEMMC window size 00000000aa000000
+NEMMC db-runs 80000000+5700000,97C00000+4400000,9F800000+AE9E4000
+NEMMC efi-map 80000000+5700000 type 7 x1
+NEMMC efi-map 85700000+600000 type 0 x1
+NEMMC efi-map 85d00000+100000 type 7 x1
+NEMMC efi-map 85e00000+3100000 type 0 x1
+NEMMC efi-map 88f00000+1c00000 type 7 x1
+NEMMC efi-map 8ab00000+cb17000 type 0 x1
+NEMMC efi-map 97617000+4e9000 type 7 x1
+NEMMC efi-map 97b00000+100000 type 0 x1
+NEMMC efi-map 97c00000+4400000 type 7 x1
+NEMMC efi-map 9c000000+2300000 type 0 x1
+NEMMC efi-map 9e300000+100000 type 7 x1
+NEMMC efi-map 9e400000+1400000 type 0 x1
+NEMMC efi-map 9f800000+7c000 type 7 x1
+NEMMC efi-map 9f87c000+aa000000 type 1 x1
+NEMMC efi-map 14987c000+7b84000 type 7 x1
+NEMMC efi-map 151401000+101000 type 7 x1
+NEMMC efi-map 151502000+c000 type 4 x1
+NEMMC efi-map 15150e000+29000 type 7 x1
+NEMMC efi-map 151537000+b000 type 3 x1
+NEMMC efi-map 151542000+2000 type 4 x1
+NEMMC efi-map 151544000+6000 type 7 x1
+NEMMC efi-map 15154a000+a000 type 4 x1
+NEMMC efi-map 151554000+1c000 type 1 x1
+NEMMC efi-map 151570000+2000 type 4 x1
+NEMMC efi-map 151572000+10000 type 9 x1
+NEMMC efi-map 151585000+3000 type 4 x1
+NEMMC efi-map 151588000+21000 type 6 x1
+NEMMC efi-map 1515ac000+1baa8000 type 4 x1
+NEMMC efi-map 16d054000+105c000 type 3 x1
+NEMMC efi-map 16e0b1000+ffcf000 type 3 x1
+NEMMC efi-map 17e080000+10000 type 5 x1
+NEMMC efi-map 17e090000+230000 type 3 x1
