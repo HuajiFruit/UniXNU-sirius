@@ -37,6 +37,7 @@ procedure = [
   "Compile the hardware tree through the payload step (prototype: dtc -I dts -O dtb -i <soc>/dts dts/sirius.dts).",
 ]
 findings = [
+  "[components] include adds ShengHidInput, [kernel] archives add component:ShengHidInput before build-native-legacy-display.py, and kernel_args pass sirius-touch-hid=1 (see the input area).",
   "[kernel] archives build build-sirius-gpu.py into libShengPlatformPower.a and kernel_args pass sirius-gpu=1 for the Adreno 616 phase-1 probe (see the gpu area).",
   "[kernel] archives build build-sirius-touch.py into libShengPlatformPower.a and kernel_args pass sirius-touch=1 for the FTS521 touch probe (see the input area).",
   "[adt.chosen.u32] sets ephemeral-storage = 1 so datamigrator skips the first-boot migration: kernel ca828cc / payload 95bcb3a showed the migration bar unfinished at t=2177 s with the CPU 87% idle and the plugin wrapper killed by signal 9; the staged system apps are not installed while it is set (see the diagnostics area).",
@@ -311,6 +312,7 @@ procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
 ]
 findings = [
+  "build-native-legacy-display.py also compiles package/SiriusHidProbe.cpp and links build/sheng-hid-input/NativeHidInput.late.o and hid-original-bindings.o into the late display archive; native_legacy_display_late_probe calls sirius_hid_touch_start() (see the input area).",
   "native_legacy_display_late_probe also calls sirius_gpu_start() (package/sirius_gpu.c, sirius-gpu=1; see the gpu area).",
   "native_legacy_display_late_probe also calls sirius_touch_start() (package/sirius_touch.c, sirius-touch=1; see the input area).",
   "With the CoreUI fixup the panel shows crashes=0 at 335 s (iconservicesagent no longer dies) and the migration progress bar at about half; console: every load of dyld_shared_cache_arm64.11 logs text-fixup +0x34f3b84 (8 bytes) applied.",
@@ -354,8 +356,8 @@ evidence = [
 [[area]]
 id = "input"
 status = "planned"
-components = []
-paths = ["docs/HANDOFF.zh-CN.md", "package/sirius_touch.c", "scripts/build-sirius-touch.py"]
+components = ["ShengHidInput"]
+paths = ["docs/HANDOFF.zh-CN.md", "package/sirius_touch.c", "scripts/build-sirius-touch.py", "package/SiriusHidProbe.cpp", "scripts/build-sheng-hid-input.py", "scripts/data/hid-device-abi.json"]
 inputs = [
   "The board has no Home button; volume keys are reported by the button node of the ADT.",
   "57UU/linux-sirius (feat/sirius-7.2, sdm710-xiaomi-sirius.dts): the touch controller is an ST FTS521 (st,fts521) at I2C 0x49 on i2c9 = QUP1 SE1 at 0xa84000 (GCC_QUPV3_WRAP1_S1_CLK, SPI 354, SDA/SCL gpio6/gpio7 function qup9), interrupt gpio125 active low, reset gpio99, vdd = tp_vddio_vreg (gpio26, regulator-boot-on), avdd = PM660L LDO6 (vreg_l6b_3p3, RPMh); touchscreen-size 1080 x 2244, keys 158/139. Not the Synaptics S3706 the earlier notes assumed.",
@@ -367,6 +369,7 @@ procedure = [
   "Follow the input guide once a touch controller is known, then select an implementation.",
 ]
 findings = [
+  "The touches reach no iOS process: Setup stays on its hello page however often the screen is swiped (kernel 86b616b / payload f2ba289), because no IOHIDDevice exists. board.toml now selects ShengHidInput and package/SiriusHidProbe.cpp (sirius-touch-hid=1, from native_legacy_display_late_probe) publishes its touch-only NativeHidInput: IOHIDFamily and IOHIDEventDriver loaded, IOHIDResource awaited (10 s), the class registered between preModLoad and postModLoad, then init/attach/start on IOHIDResource; native_hid_live_checkpoint publishes Built-In, DisplayIntegrated, PrimaryUsagePage 0x0d and PrimaryUsage 4 on the IOHIDEventDriver and its interface, as UniXNU-sheng package/HidInputProbe.cpp does for backboardd. The contacts are the FTS521 driver's native_touch_* in ShengHidInput's 30480 x 20320 units (exact for 1080 x 2244). UniXNU's recipe needs a sheng-only prelinked reference candidate, so scripts/build-sheng-hid-input.py replaces it: it binds against scripts/data/hid-device-abi.json, the original 207-slot IOHIDDevice vtable read from this board's kernel 86b616b after the recipe's own checks passed against it (constructor bytes, the 18 IOService overrides, pure slot 180, handleStart; handleReport at slot 181 = 0xfffffff004add0c4), and requires the compiled overrides to be exactly [0,1,7,14,86,87,111,171,173,180]. Not built or run yet.",
   "Kernel 26ed024 (commit e02fa17) / payload 3f16296 (docs/evidence/sirius-touch-gpu-20261029-probe2.log): the touch controller works. cmd-db ldob6 = 0x41b00; RSC drv-2 id 0x00010100 (version 1.1, the 2.7 register layout), TCS 0 idle; the LDO6 request completed in 1 ms with CMD_STATUS 0x00010101 on all three commands; after the power cycle the chip reports CONTROLLER_READY with no bus error, chip id 36 39 (FTM5), firmware 0x5400; sensing on, and touches arrive as enter/motion/leave events with x 0..1080, y 0..2244 (673 down/up lines in the first window). iOS does not react yet: no IOHIDDevice is published.",
   "Second probe, after a review against Linux (not run yet): the analog rail is voted on through RPMh (cmd-db \"ldob6\" lookup with zero-padded 8-byte ids, VRM slave id 4 = CMD_DB_HW_VRM; apps RSC drv-2 at 0x179e0000, the first ACTIVE TCS at +0xd00, voltage 3300 mV, mode 7 (PMIC4 LDO HPM), enable, each with a response requested, completion polled on IRQ_STATUS bit 0, command-enable mask written exactly, per rpmh-rsc.c ver 2.7/3.0 offsets), in fts_chip_powercycle() order (reset low, vdd, 1 ms, avdd, 5 + 10 ms, reset high); the chip reset is the gpio toggle (fts_system_reset with a reset gpio), followed by pollForEvent(EVT_ID_CONTROLLER_READY) for up to 1 s before the chip id read. Also: 5 broken string literals from a scripted edit were found by re-reading and fixed; both C files pass clang -fsyntax-only -Wall -Wextra.",
   "Kernel 66d1272 (commit 10f440b) / payload 7995ea8, at 77 s (docs/evidence/sirius-touch-20261028-probe1.log): the QUP1 clocks run after the vote (m_ahb, s_ahb, s1 CBCR CLK_OFF clear, vote 0x45b00000), the SE1 RCG already selects XO (cfg 0x00100000), QUP1 hw_ver 0x10010000, SE1 runs I2C firmware (proto 3) with FIFO mode and a 16-word TX FIFO; the chip acks 0x49 (no NACK on any transfer) but every read returns zeros and the reset never reports ready, while gpio125 stays low (events pending). The FIFO packing was LSB-first; i2c-qcom-geni.c packs MSB-first (geni_se_config_packing(..., true, true, true)), so every byte reached the chip bit-reversed. Fixed: TX/RX packing 0x0007f8fe/0x000ffefe, and the RX FIFO is drained after CMD_DONE.",
@@ -594,6 +597,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "package/SiriusHidProbe.cpp logs its result as TOUCH hid lines (IOLog).",
   "The GPU phase-1 and touch lines of kernel 86b616b / payload f2ba289 are docs/evidence/sirius-gpu-20261029-phase1.log.",
   "The TOUCH and GPU lines of the second probe boot are docs/evidence/sirius-touch-gpu-20261029-probe2.log; the USB console dropped out at about 155 s of the first window and later windows found no port, while the phone kept running (panel photo at t=328 s).",
   "package/sirius_gpu.c logs each GPU phase-1 step as a GPU console line (see the gpu area).",

@@ -563,11 +563,14 @@ extern "C" void native_keystore_probe(void);
 extern "C" void sirius_touch_start(void);
 // The Adreno 616 phase-1 probe (package/sirius_gpu.c, sirius-gpu=1): CX power, then GMU and GPU SMMU reads.
 extern "C" void sirius_gpu_start(void);
+// The touch screen for iOS (package/SiriusHidProbe.cpp, sirius-touch-hid=1): ShengHidInput's touch-only device.
+extern "C" void sirius_hid_touch_start(void);
 
 void native_legacy_display_late_probe(void) {
     native_keystore_probe();
     sirius_touch_start();
     sirius_gpu_start();
+    sirius_hid_touch_start();
     IOService *display = pendingLegacyDisplay;
     if (!display) return;
     pendingLegacyDisplay = nullptr;

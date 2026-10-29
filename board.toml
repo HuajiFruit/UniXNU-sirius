@@ -27,7 +27,7 @@ kit = "sirius"
 # the board's fork with the GIC-500 pre-configuration and the INTID 19 timer. XnuPrelink is the
 # prelink kit the OS profile names.
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "XnuPrelink", "DarwinBoot", "GopFramebuffer", "AppleKeyStoreState"]
+include = ["ArmDTPlatform", "ArmCpu", "XnuPrelink", "DarwinBoot", "GopFramebuffer", "AppleKeyStoreState", "ShengHidInput"]
 
 # The unchanged iPad7,1 iPadOS 17.7.11 restore image, the same target as fajita and sheng.
 # SDM710 (Kryo 360, Cortex-A75/A55) is ARMv8.2 without pointer authentication, so it runs
@@ -56,7 +56,8 @@ archives = [
   "component:ArmDTPlatform",
   "component:ArmCpu",
   "build-libpthread-kernel.py",
-  "component:AppleKeyStoreState",     # -Werror build and object audit of the keystore service; the late
+  "component:AppleKeyStoreState",
+  "component:ShengHidInput",          # board recipe scripts/build-sheng-hid-input.py; linked by the display archive below     # -Werror build and object audit of the keystore service; the late
                                      # display archive below links its own copy
   "build-native-legacy-display.py",   # the NativeLegacyDisplay / GopFramebuffer late archive
   "build-boot-progress.py",           # the boot progress display (kits/sirius, the readable kernel log)
@@ -166,6 +167,7 @@ kernel_args = [
                                     # persistent Data SpringBoard does not finish booting without them
   "sirius-spawn-log=1",             # package/BootProgress.c: a SPAWN console line per exec and exit, with the second
   "sirius-touch=1",                 # package/sirius_touch.c: QUP1 SE1 I2C, FTS521 chip id, then the event FIFO
+  "sirius-touch-hid=1",             # package/SiriusHidProbe.cpp: publish the touch screen (ShengHidInput) to iOS
   "sirius-gpu=1",                   # package/sirius_gpu.c: Adreno 616 phase 1 (CX GDSC, GMU clock, GMU/SMMU reads)
   "validation_disables=0x10",       # KF_STACKSHOT_OVRD: user stackshots return KERN_NOT_SUPPORTED. Watchdogs ask
                                     # for one before they kill a hung job, and on this port threads keep changing while

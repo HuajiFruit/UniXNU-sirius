@@ -291,6 +291,16 @@ keyevents_src = ROOT / 'drivers/AppleKeyStoreState/NativeKeyStoreEvents.cpp'
 keyevents_obj = OUT / 'NativeKeyStoreEvents.o'
 build_cxx_object(keyevents_src, keyevents_obj)
 
+# The touch screen for iOS: the board probe that publishes ShengHidInput's touch-only NativeHidInput, and that class and its
+# original IOHIDDevice bindings as the component recipe (scripts/build-sheng-hid-input.py, run earlier) left them.
+hid_probe_src = ROOT / 'kits/sirius/SiriusHidProbe.cpp'
+hid_probe_obj = OUT / 'SiriusHidProbe.o'
+build_cxx_object(hid_probe_src, hid_probe_obj)
+hid_objects = [ROOT / 'build/sheng-hid-input/NativeHidInput.late.o', ROOT / 'build/sheng-hid-input/hid-original-bindings.o']
+missing_hid = [str(path) for path in hid_objects if not path.is_file()]
+if missing_hid:
+    raise SystemExit('ShengHidInput objects missing (component:ShengHidInput must come before this script): ' + ', '.join(missing_hid))
+
 # 5. Extract compiled vtable references from NativeLegacyDisplay.o and resolve bindings
 raw = disp_obj.read_bytes()
 image = macho(raw)
@@ -393,7 +403,7 @@ ar_cmd = find_ar()
 archive = OUT / 'libNativeLegacyDisplay.late.a'
 archive.unlink(missing_ok=True)
 subprocess.run([*ar_cmd, 'rcs', str(archive), str(disp_late), str(pres_late), str(bindings_obj), str(probe_obj), str(stubs_obj),
-                str(keystore_obj), str(keyevents_late)],
+                str(keystore_obj), str(keyevents_late), str(hid_probe_obj), *[str(path) for path in hid_objects]],
                check=True)
 
 # 8. Write build-report.json
@@ -406,6 +416,7 @@ source_files = [
     stubs_src,
     keystore_src,
     keyevents_src,
+    hid_probe_src,
 ]
 
 owned_entries = sorted([0, 1, 7, 14, 84, 86, 87, 141, 155, 184, 188, 288, 290, 296, 301] + pure_slots)
