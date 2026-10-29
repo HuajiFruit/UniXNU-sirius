@@ -1,0 +1,26 @@
+# sirius, kernel 4f8ea4d (commit 5401dd0) / payload 75dcdf0: GPU phase 1 and the read-only GPU SMMU stream-mapping dump (unique lines).
+GPU gcc vote=01601d7b cfg_ahb=00000001 memnoc=80004220 snoc_dvm=80000001 ddr_axi=00000000
+GPU clk gpu_cfg_ahb cbcr=00000001 on
+GPU cx gdscr=00222001 hw_ctrl=00005ff4 gx gdscr=00222001
+GPU cx gdsc on: gdscr=f8288000 hw_ctrl=80001fe0 on
+GPU clk gpu_memnoc_gfx cbcr=00004221 on
+GPU clk gpu_snoc_dvm_gfx cbcr=00000001 on
+GPU clk ddrss_gpu_axi cbcr=00000001 on
+GPU gmu rcg cmd=80000000 cfg=00000000 cx_gmu=80004220 cxo=00000001
+GPU clk cx_gmu cbcr=00004221 on
+GPU clk gpu_cxo cbcr=00000001 on
+GPU gmu rcg now cmd=00000000 (after update 00000002) cfg=00000602
+GPU gmu sysreset=00000001 boot_config=00000000 fw_init=00000000 fw_version=ccf356d7 hfi_ctrl=00000000 sptprac=000000d4 rpmh_state=0000000f
+GPU gmu always-on 000008bc -> 00205b25: 2118249 ticks in 10 ms (19.2 MHz: about 192000)
+GPU smmu scr0=00200626 idr0=48016605 idr1=20008005 idr2=00007511 idr7=00000000
+GPU smmu smr0=00000000 s2cr0=000200ff
+GPU smmu smr1=00000000 s2cr1=000200ff
+GPU smmu smr2=00000000 s2cr2=000200ff
+GPU smmu smr3=00000000 s2cr3=000200ff
+GPU smmu smr4=00000000 s2cr4=000200ff
+GPU smmu cb0 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+GPU smmu cb1 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+GPU smmu cb2 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+GPU smmu cb3 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+GPU smmu cb4 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+GPU phase 1 done: CX powered, GMU and GPU SMMU readable
