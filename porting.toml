@@ -37,6 +37,7 @@ procedure = [
   "Compile the hardware tree through the payload step (prototype: dtc -I dts -O dtb -i <soc>/dts dts/sirius.dts).",
 ]
 findings = [
+  "kernel_args pass sirius-skip-setup=1 (see the diagnostics area).",
   "kernel_args add sheng-touch-hid=1 (NativeHidInput adds the touch collection to its combined device; see the input area).",
   "kernel_args pass dk=0 so DriverKit dexts do not match (see the input area).",
   "[components] include adds ShengHidInput, [kernel] archives add component:ShengHidInput before build-native-legacy-display.py, and kernel_args pass sirius-touch-hid=1 (see the input area).",
@@ -610,6 +611,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "package/BootWatchdogPolicy.c (sirius-skip-setup=1, kernel_args) writes, on every boot before launchd, the preference values of UniXNU scripts/seed-data-skip-setup.py (from dipa-studio/ios-sweet, established on hardware) into the persistent Data volume as XML plists owned by mobile (501), mode 0600: com.apple.purplebuddy SetupDone, SetupFinishedAllSteps, SetupVersion 11, daemonizeNeedsToRun false; the purplebuddy.notbackedup mini-buddy flags false; managedconfiguration.notbackedup LockdownActivationIndicatesCloudConfigurationAvailable false; com.apple.springboard BKNoWatchdogs, FBLaunchWatchdogExceptions {com.apple.purplebuddy: 100}, MCForceShowCloudConfigurationUI false and SBDisableAutoDim, SBDontDimOrLockOnAC, SBDisableIdleSleep (no power button driver to wake the display). The seed tool edits a packed RAM Data seed on a Mac and cannot reach this board's eMMC Data volume. sheng-setup=1 still wins (the Hello page). Each write logs sirius skip setup: <path> <errno>. Not run yet.",
   "package/sirius_gpu.c also logs the GPU SMMU stream-mapping dump as GPU smmu smrN/cbN lines (see the gpu area).",
   "The HID and SpringBoard-restart lines of kernel 67b65eb / payload 1611d2a are docs/evidence/sirius-touch-hid-20261029-combined.log.",
   "The HID lines of the dk=0 touch-only boot are docs/evidence/sirius-touch-hid-20261029-dk0.log.",

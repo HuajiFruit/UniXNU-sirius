@@ -50,6 +50,60 @@ static int sheng_boot_setup_reset(proc_t p,uint64_t scratch) {
  return 0;
 }
 
+// Write text to path (created or truncated, never through a symlink) through the scratch page, then set its owner and mode.
+// The path goes to scratch+0 and the text in 0x1f0-byte pieces to scratch+0x200, below the cache-mount slots at +0x400.
+static int sheng_boot_write_file(proc_t p,uint64_t scratch,const char *path,const char *text,int uid,int gid,int mode) {
+ int error,fd;int32_t result=0;
+ if((error=copyout(path,scratch,strlen(path)+1)))return error;
+ struct open_args op={.path=scratch,.flags=O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW,.mode=mode};
+ if((error=open(p,&op,&result)))return error;
+ fd=result;
+ for(size_t sent=0,total=strlen(text);sent<total && !error;) {
+  size_t piece=total-sent<0x1f0?total-sent:0x1f0;
+  user_ssize_t written=0;
+  if(!(error=copyout(text+sent,scratch+0x200,piece))) {
+   struct write_args wr={.fd=fd,.cbuf=scratch+0x200,.nbyte=piece};
+   if(!(error=write(p,&wr,&written)) && written!=(user_ssize_t)piece)error=EIO;
+  }
+  sent+=piece;
+ }
+ if(!error){struct fchown_args owner={.fd=fd,.uid=uid,.gid=gid};error=fchown(p,&owner,&result);}
+ if(!error){struct fchmod_args m={.fd=fd,.mode=mode};error=fchmod(p,&m,&result);}
+ if(!error){struct fsync_args sync={.fd=fd};error=fsync(p,&sync,&result);}
+ struct close_args cl={.fd=fd};int e=sys_close(p,&cl,&result);
+ return error?error:e;
+}
+
+// sirius-skip-setup=1: boot past Setup (the OOBE) to SpringBoard. The preference values of UniXNU scripts/seed-data-skip-setup.py
+// (from github.com/dipa-studio/ios-sweet tools/sweet-root-tweaks.py, established on hardware), written on every boot as XML
+// plists owned by mobile (501) with mode 0600, before launchd and so before cfprefsd reads them. No auto-dim or idle sleep: this
+// board has no power button driver to wake the display again.
+#define PLIST_HEAD "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" " \
+ "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict>"
+#define PLIST_TAIL "</dict></plist>\n"
+static const struct {const char *path,*text;} skip_setup_files[]={
+ {"/private/var/mobile/Library/Preferences/com.apple.purplebuddy.plist",PLIST_HEAD
+  "<key>SetupDone</key><true/><key>SetupFinishedAllSteps</key><true/><key>SetupVersion</key><integer>11</integer>"
+  "<key>daemonizeNeedsToRun</key><false/>" PLIST_TAIL},
+ {"/private/var/mobile/Library/Preferences/com.apple.purplebuddy.notbackedup.plist",PLIST_HEAD
+  "<key>ShouldRunDiagnosticsMiniBuddy</key><false/><key>ShouldRunHSA2MiniBuddy</key><false/>"
+  "<key>ShouldRunKeychainSyncMiniBuddy</key><false/><key>ShouldRunMesaMiniBuddy</key><false/>"
+  "<key>ShouldRunPaymentMiniBuddy</key><false/><key>ShouldRunStandardMiniBuddy</key><false/><key>SilentICDPUpgrade</key><false/>"
+  PLIST_TAIL},
+ {"/private/var/mobile/Library/Preferences/com.apple.managedconfiguration.notbackedup.plist",PLIST_HEAD
+  "<key>LockdownActivationIndicatesCloudConfigurationAvailable</key><false/>" PLIST_TAIL},
+ {"/private/var/mobile/Library/Preferences/com.apple.springboard.plist",PLIST_HEAD
+  "<key>BKNoWatchdogs</key><true/><key>FBLaunchWatchdogExceptions</key><dict><key>com.apple.purplebuddy</key><real>100</real></dict>"
+  "<key>MCForceShowCloudConfigurationUI</key><false/><key>SBDisableAutoDim</key><true/><key>SBDontDimOrLockOnAC</key><true/>"
+  "<key>SBDisableIdleSleep</key><true/>" PLIST_TAIL},
+};
+static void sheng_boot_skip_setup(proc_t p,uint64_t scratch) {
+ for(unsigned i=0;i<sizeof(skip_setup_files)/sizeof(skip_setup_files[0]);++i) {
+  int error=sheng_boot_write_file(p,scratch,skip_setup_files[i].path,skip_setup_files[i].text,501,501,0600);
+  printf("sirius skip setup: %s %d\n",skip_setup_files[i].path,error);
+ }
+}
+
 // One comma-separated label at *c into the policy as a disabled key; advances *c past it.
 static int append_job(const char **cursor) {
  const char *c=*cursor,*e=c;while(*e && *e!=',')++e;
@@ -80,6 +134,9 @@ int sheng_boot_watchdog_policy(void *process, uint64_t scratch) {
   return error;
  }
  if(setup==1)printf("sheng setup flags reset: Hello page on this boot\n");
+ // Skipping Setup never overrides an explicit request for the Hello page.
+ int skip=0;PE_parse_boot_argn("sirius-skip-setup",&skip,sizeof(skip));
+ if(skip==1 && setup!=1)sheng_boot_skip_setup(p,scratch);
  if(!enabled && !jobs[0] && !lite)return 0;
  policy[0]=0;strlcat(policy,policy_head,sizeof(policy));
  if(enabled)strlcat(policy,policy_watchdogd,sizeof(policy));
