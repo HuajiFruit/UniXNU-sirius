@@ -20,35 +20,36 @@ Read [Where the boot stands](#where-the-boot-stands) first, then `README.md`,
 
 ## Where the boot stands
 
-Kernel `67b65eb` (commit `fb84613`), payload `1611d2a`; seconds after `fastboot reboot`. The
-evidence is in `docs/evidence/` (`sirius-touch-hid-20261029-combined.log`,
-`sirius-gpu-20261029-phase1.log`, `sirius-spawn-20261028-ephemeral.log`); `porting.toml` has the
-rest.
+Kernel `20050dd` (commit `8c3c2df`), payload `a41130b`; seconds after `fastboot reboot`. The
+evidence is in `docs/evidence/` (`sirius-gpu-20261029-gmu.log`, `sirius-memory-20261029-efimap.log`,
+`sirius-touch-hid-20261029-combined.log`, `sirius-spawn-20261028-ephemeral.log`); `porting.toml`
+has the rest.
 
 | Stage | State |
 | --- | --- |
-| U-Boot → UniXNU.efi → DarwinBoot → XNU | works; DarwinBoot gives XNU a 1 GiB window (`owned_memory_size`) |
+| U-Boot → UniXNU.efi → DarwinBoot → XNU | works; DarwinBoot gives XNU a 2.66 GiB window (`owned_memory_size = 0xaa000000`, 667813 free pages) and reports the final UEFI map in `/chosen/darwinboot-efi-map` |
 | CPU | A55s at 1708 MHz, A75s requested at 2208 MHz (`sirius-cpufreq=1`) |
 | eMMC | 50 MHz, 8-bit HS SDR, 256-block ADMA2, about 30 MiB/s |
 | Root, launchd, Data | APFS OS volume + SystemOS cryptex; 8 GiB persistent Data volume on eMMC (`disk3s1`) |
 | Data migration | skipped: `/chosen/ephemeral-storage = 1` (`[adt.chosen.u32]`); its plugins waited on missing services for over 36 minutes. The staged system apps are not installed while it is set |
 | UI | iOS reaches the Setup assistant ("hello", status bar, clock) at about 220–360 s, CPU-rendered: the GOP framebuffer is copied by the CPU (about 9–10 ms a frame, write-combined scanout, cached source) |
 | Touch | **works**: FTS521 on QUP1 SE1 (`package/sirius_touch.c`, LDO6 through RPMh), published to iOS by `package/SiriusHidProbe.cpp` as ShengHidInput's combined keyboard+touch device; the in-kernel IOHIDEventDriver takes it (`dk=0`, `sheng-touch-hid=1`). Setup reacts to touch |
-| GPU | Adreno 616 phase 1 done (`package/sirius_gpu.c`): CX GDSC, GPU bus clocks, GMU clock at 200 MHz, GMU and GPU SMMU registers readable. No firmware loaded yet, no Metal device |
+| GPU | Adreno 616 phase 2 done (`package/sirius_gpu.c`, `sirius-gpu=2`): CX power and clocks, a GPU SMMU context (bank 1) for the GMU's stream 5, `a630_gmu.bin` (fetched at build time, SHA-256 pinned) booted (`FW_INIT_RESULT 0xbabeface`), GX powered by its boot vote, HFI v1 INIT and FW_VERSION answer. The GPU core (SQE, CP) is not started, no Metal device |
 | Known issues | the wallpaper poster extensions crash-loop (Kaleidoscope sig 11, Aegir sig 6); the USB console often stops after a few minutes while the phone keeps running; user stackshots are refused (`validation_disables=0x10`) because a stackshot panicked on this port |
 
 Next, in order:
 
-1. **GPU phase 2:** load `a630_gmu.bin`, boot the GMU and get HFI v1 replies (legacy A630-family
-   path). The GMU reads its HFI queues through the GPU SMMU (stream 5), so this needs a context
-   for that stream on the GPU SMMU at `0x05040000` (never the apps SMMU). Then GX, ZAP, SQE and a
-   fence (phase 3), then the Adreno6xx fork with an A616 backend and AdrenoMetal for a Metal
-   device. Hardware values and milestones are in the `porting.toml` gpu area.
+1. **GPU phase 3:** the HFI perf and bandwidth tables, the A615 register init, the ZAP shader
+   (SCM), `a630_sqe.fw`, a CP ring and one fence. Use cmd-db's `gfx.lvl` address (`0x30050` on
+   SDM710, not Linux's `0x30080`) in the PDC sequence before any GMU power collapse. Then the
+   Adreno6xx fork with an A616 backend and AdrenoMetal for a Metal device. Hardware values and
+   milestones are in the `porting.toml` gpu area.
 2. **Touch polish:** buttons (power and volume, through `native_buttons_set_sink`), and why the
    DriverKit HID server is never launched (`dk=0` keeps every dext off).
 3. **Data migration:** find what its plugins wait on, so `ephemeral-storage` can go and the
    system apps install.
-4. Later: DDR52/HS200 eMMC; more than a 1 GiB window below 4 GiB; the other drivers of
+4. Later: DDR52/HS200 eMMC; the rest of the RAM (boot-services memory above the window, and about
+   2 GiB U-Boot's map leaves out); the other drivers of
    57UU/linux-sirius (battery, RTC, haptics, backlight, Wi-Fi, audio); a clean upstream PR to 57UU.
 
 ## Work
@@ -130,7 +131,8 @@ Do not repeat these; each one cost a hardware round:
 - Never set `CONFIG_XNU_NATIVE_PAN=n` and never clear PSTATE.PAN by hand: the CPU sets PAN on
   every exception entry, so without the PAN build copyin/copyout loop forever, and with it a
   clear PAN at a context switch panics.
-- Never write the SMMU's S2CR/SMR from the driver: it has hung the SoC.
+- Never write the apps SMMU's S2CR/SMR from the driver: it has hung the SoC. (The GPU SMMU at
+  `0x05040000` is a separate instance; phase 2 programs it, with CX on, without trouble.)
 - The eMMC driver's shared bounce buffer stays under the transport lock until the copy into or
   out of the request is done; releasing it early handed one request another's blocks.
 - Every Data seed build formats a new volume with a new UUID.
@@ -151,7 +153,7 @@ Do not repeat these; each one cost a hardware round:
 | U-Boot image | `~/Xnu4Sirius/UniXNU-sirius/uboot/boot-unixnu.img` (`bash uboot/build.sh`) |
 
 On the phone now: `boot` = `boot-unixnu.img`, `userdata` = `data-window.simg` (the 8 GiB Data
-volume), `vendor` = `tmp/payload-AD-combined.img` (kernel `67b65eb`, payload `1611d2a`).
+volume), `vendor` = `tmp/payload-AI-gmu.img` (kernel `20050dd`, payload `a41130b`).
 
 - Run WSL commands from script files: `wsl.exe -- bash -c '…'` from Git Bash loses `$variables`.
   Set `MSYS_NO_PATHCONV=1` in Git Bash, and give fastboot `\\wsl.localhost\Ubuntu-26.04\…` paths
@@ -170,7 +172,7 @@ gh workflow run kernel.yml -R HuajiFruit/UniXNU-sirius --ref main -f steps=kerne
 gh run download <run id> -R HuajiFruit/UniXNU-sirius -n sirius-kernel-<n> -D <dir>
 
 # payload, in WSL
-cd ~/Xnu4Sirius/UniXNU-sirius && git pull --ff-only origin main
+cd ~/Xnu4Sirius/UniXNU-sirius && git fetch -q origin && \n  git -c user.name=build -c user.email=build@localhost merge -q --no-edit origin/main   # the clone has merge commits
 cd ~/Xnu4Sirius/UniXNU
 W=out/sirius/ipados-17.7.11-21H461/sirius
 ./unixnu build payload --kernel <kernel.macho> -D ../UniXNU-sirius \

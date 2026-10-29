@@ -1,0 +1,44 @@
+# sirius, kernel 20050dd (commit 8c3c2df, sirius-gpu=2) / payload a41130b: GPU phases 1, 2a and 2 (GMU firmware boot and HFI v1),
+# unique GPU lines with the seconds after fastboot reboot. The boot continues normally to the end of the 280 s capture (SpringBoard 139 s).
+    46.6 GPU gcc vote=01601d7b cfg_ahb=00000001 memnoc=80004220 snoc_dvm=80000001 ddr_axi=00000000
+    46.6 GPU clk gpu_cfg_ahb cbcr=00000001 on
+    46.6 GPU cx gdscr=00222001 hw_ctrl=00005ff4 gx gdscr=00222001
+    46.6 GPU cx gdsc on: gdscr=f8288000 hw_ctrl=80001fe0 on
+    46.6 GPU clk gpu_memnoc_gfx cbcr=00004221 on
+    46.6 GPU clk gpu_snoc_dvm_gfx cbcr=00000001 on
+    46.6 GPU clk ddrss_gpu_axi cbcr=00000001 on
+    46.6 GPU gmu rcg cmd=80000000 cfg=00000000 cx_gmu=80004220 cxo=00000001
+    46.6 GPU clk cx_gmu cbcr=00004221 on
+    46.6 GPU clk gpu_cxo cbcr=00000001 on
+    46.6 GPU gmu rcg now cmd=00000000 (after update 00000002) cfg=00000602
+    46.6 GPU gmu sysreset=00000001 boot_config=00000000 fw_init=00000000 fw_version=ccf356df hfi_ctrl=00000000 sptprac=000000d4 rpmh_state=0000000f
+    46.6 GPU gmu always-on 00000920 -> 00208f61: 2131521 ticks in 10 ms (19.2 MHz: about 192000)
+    46.6 GPU smmu scr0=00200626 idr0=48016605 idr1=20008005 idr2=00007511 idr7=00000000
+    46.6 GPU smmu smr0=00000000 s2cr0=000200ff
+    46.6 GPU smmu smr1=00000000 s2cr1=000200ff
+    46.6 GPU smmu smr2=00000000 s2cr2=000200ff
+    46.6 GPU smmu smr3=00000000 s2cr3=000200ff
+    46.6 GPU smmu smr4=00000000 s2cr4=000200ff
+    46.6 GPU smmu cb0 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+    46.6 GPU smmu cb1 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+    46.6 GPU smmu cb2 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+    46.6 GPU smmu cb3 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+    46.6 GPU smmu cb4 cbar=00000000 cba2r=00000000 sctlr=00000000 ttbr0=0000000000000000 tcr=00000000 mair0=00000000 fsr=00000000
+    46.6 GPU phase 1 done: CX powered, GMU and GPU SMMU readable
+    46.6 GPU gmu firmware 32768 bytes, first 00043f80 00000009
+    46.6 GPU dma va=0xfffffff1c7928000 pa=00000000a684b000 64 KiB
+    46.6 GPU smmu cb1 cbar=0001f300 cba2r=00000001 sctlr=00001027 tcr=00802020 tcr2=00038001 ttbr0=00010000a684b000 mair0=f404ff44 fsr=00000400 sync=1/1
+    46.6 GPU smmu smr1=80000005 s2cr1=00000001 scr0=00200626
+    46.6 GPU smmu ats1pr 60009000 -> par=40000000a6857b80 want 00000000a6857000 ok (fsr=00000400)
+    46.6 GPU cmd-db cx.lvl addr=30000 mx.lvl addr=30010 levels=16 gfx.lvl addr=30050 levels=16
+    46.6 GPU cmd-db gfx.lvl: 0 16 48 64 128 192 256 320 384 416 0 0 0 0 0 0
+    46.6 GPU gx rail vote level 192: gfx index 5 (192) mx index 3 (256)
+    46.6 GPU rscc seq0=a7a506a0 slave=00000001 pdc enable=80000001 tcs1 addr2=30080 tcs3 data1=3 seq0=febea1e1
+    46.6 GPU gmu itcm 8192 words written, 0 read back different
+    46.6 GPU gmu start: marker=00000000 (expects babeface) fw_init=babeface up fw_version=00000000
+    46.6 GPU gmu gx rail acked (info=40000000) rpmh_state=0000000f gx gdscr=f8222000 sptprac on status=00000028
+    46.6 GPU gmu hfi ctrl status=00000001 up
+    46.6 GPU hfi msg 0 seq 1: reply header=0002047e error=0 payload=0e550e55
+    46.6 GPU hfi msg 1 seq 2: reply header=0012047e error=0 payload=10060000
+    46.6 GPU gmu log 00000000 00000000 00000000 00000000
+    46.6 GPU phase 2: GMU up, HFI v1 answers (phase=10)
