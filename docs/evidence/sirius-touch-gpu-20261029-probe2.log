@@ -1,0 +1,27 @@
+# sirius, kernel 26ed024 (commit e02fa17, sirius-touch=1 sirius-gpu=1) / payload 3f16296: the TOUCH and GPU console lines of the first window
+# (unique lines in arrival order; the first 20 touch transitions of 673 logged). Panel photo at t=328 s: Setup 'hello', no panic.
+TOUCH clk vote=45b00000 m_ahb=00000000 s_ahb=00000000 s1=00004220 rcg cmd=00000000 cfg=00100000
+TOUCH qup1 hw_ver=10010000
+TOUCH se fw=00000300 proto=3 fifo_disable=0 tx_depth=16 status=00000000
+GPU gcc vote=01601d7b cfg_ahb=00000001 memnoc=80004220 snoc_dvm=80000001 ddr_axi=00000000
+GPU clk gpu_cfg_ahb cbcr=00000001 on
+GPU clk gpu_memnoc_gfx cbcr=80004221 OFF
+GPU a GCC branch stays off; GPU CC is not touched
+TOUCH cmd-db ldob6 addr=00041b00
+TOUCH rsc drv2 id=00010100 config=80008104 tcs0 control=00000000 enable=00000000 status=00000001
+TOUCH avdd ldob6 vrm=41b00 3300mV done=1 ms cmd status 00010101 00010101 00010101
+TOUCH power avdd=1 pins sda/scl cfg=00000007/00000007 irq=1 reset=1 vddio=1
+TOUCH reset ready=1 bus errors=0 last=00000000 irq=1
+TOUCH chip id error=00000000 irq=08000081 read=8 bytes 36 39 03 00 54 00 39 19
+TOUCH sense on error=00000000 irq=1
+TOUCH down id=0 x=1065 y=1313
+TOUCH up id=0 x=1065 y=1313
+TOUCH down id=0 x=969 y=1305
+TOUCH move id=0 x=742 y=1305
+TOUCH up id=0 x=693 y=1305
+TOUCH down id=0 x=18 y=1555
+TOUCH up id=0 x=18 y=1555
+TOUCH down id=0 x=78 y=1894
+TOUCH up id=0 x=78 y=1894
+TOUCH down id=0 x=2 y=1902
+TOUCH up id=0 x=102 y=1845

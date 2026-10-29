@@ -7,9 +7,10 @@
  * GDSC), drivers/clk/qcom/gdsc.c (the enable sequence) and drivers/gpu/drm/msm/registers/adreno/a6xx_gmu.xml (GMU registers,
  * dword offsets from the GPU base: byte address = 0x05000000 + 4 * offset, gmu_read()).
  *
- * The order follows a6xx_gmu_resume() and the clock framework: GCC sources and branches first (an unprogrammed branch has
- * stalled this SoC), then the CX GDSC (VOTABLE, status in gds_hw_ctrl), then the GMU clock source at 200 MHz (GPLL0 main div
- * / 1.5, rcg2_shared: force the root on around the update) and its cx_gmu and cxo branches. After that it only reads: GMU state
+ * The order follows a6xx_gmu_resume() and the clock framework: the GCC GPLL0 votes and gpu_cfg_ahb (the GPU CC's register
+ * interface) first, then the CX GDSC (VOTABLE, status in gds_hw_ctrl), then the GCC branches into the CX domain (memnoc_gfx,
+ * snoc_dvm_gfx, ddrss_gpu_axi), then the GMU clock source at 200 MHz (GPLL0 main div / 1.5, rcg2_shared: force the root on
+ * around the update) and its cx_gmu and cxo branches. After that it only reads: GMU state
  * registers, the GMU always-on counter twice, and the GPU SMMU's global ID registers. Nothing writes the GMU or either SMMU.
  *
  * sirius-gpu=1 runs it once on a kernel thread from the late display probe; every step is a GPU console line.
@@ -108,9 +109,20 @@ gcc_on(void)
 	__asm__ volatile ("dsb sy" ::: "memory");
 	spin_us(50);
 	/* The GPU CC's own register interface is behind gcc_gpu_cfg_ahb_clk (CLK_IS_CRITICAL in Linux): nothing in GPU CC is read
-	 * until it runs. */
-	return branch_on(gcc_reg(GCC_GPU_CFG_AHB_CBCR), "gpu_cfg_ahb") && branch_on(gcc_reg(GCC_GPU_MEMNOC_GFX_CBCR), "gpu_memnoc_gfx") &&
-	       branch_on(gcc_reg(GCC_GPU_SNOC_DVM_CBCR), "gpu_snoc_dvm_gfx") && branch_on(gcc_reg(GCC_DDRSS_GPU_AXI_CBCR), "ddrss_gpu_axi");
+	 * until it runs. The other GPU branches feed the CX domain and stay CLK_OFF while it is collapsed (first boot: memnoc_gfx
+	 * 0x80004221 after enabling), so they follow the CX GDSC, as the GMU's and the SMMU's clocks do in Linux. */
+	return branch_on(gcc_reg(GCC_GPU_CFG_AHB_CBCR), "gpu_cfg_ahb");
+}
+
+/* After the CX GDSC: the GMU's axi/memnoc clocks and the GPU SMMU's bus clock (BRANCH_VOTED memnoc_gfx and ddrss_gpu_axi,
+ * BRANCH_HALT snoc_dvm_gfx). Returns whether the SMMU's bus clock runs. */
+static int
+gpu_bus_on(void)
+{
+	int memnoc = branch_on(gcc_reg(GCC_GPU_MEMNOC_GFX_CBCR), "gpu_memnoc_gfx");
+	branch_on(gcc_reg(GCC_GPU_SNOC_DVM_CBCR), "gpu_snoc_dvm_gfx");
+	branch_on(gcc_reg(GCC_DDRSS_GPU_AXI_CBCR), "ddrss_gpu_axi");
+	return memnoc;
 }
 
 #define GPUCC(offset) (gpucc[(offset) / 4])
@@ -177,7 +189,7 @@ gpu_thread(void *parameter, int wait_result)
 	}
 	sirius_gpu_state[0] = 1;
 	if (!gcc_on()) {
-		printf("GPU a GCC branch stays off; GPU CC is not touched\n");
+		printf("GPU gpu_cfg_ahb stays off; GPU CC is not touched\n");
 		return;
 	}
 	sirius_gpu_state[0] = 2;
@@ -186,6 +198,7 @@ gpu_thread(void *parameter, int wait_result)
 		return;
 	}
 	sirius_gpu_state[0] = 3;
+	int bus = gpu_bus_on();
 	if (!gmu_clock_on()) {
 		printf("GPU the GMU clock does not run; the GMU is not read\n");
 		return;
@@ -209,6 +222,11 @@ gpu_thread(void *parameter, int wait_result)
 	    GMU(GMU_SPTPRAC_PWR_CLK_STATUS), GMU(GMU_RPMH_POWER_STATE));
 	printf("GPU gmu always-on %08x -> %08x: %u ticks in 10 ms (19.2 MHz: about 192000)\n", ao0, ao1, ao1 - ao0);
 #undef GMU
+	/* An unclocked SMMU register read can stall the bus: only with its bus clock running. */
+	if (!bus) {
+		printf("GPU gpu_memnoc_gfx stays off; the GPU SMMU is not read\n");
+		return;
+	}
 	sirius_gpu_state[3] = smmu[0x20 / 4];
 	printf("GPU smmu scr0=%08x idr0=%08x idr1=%08x idr2=%08x idr7=%08x\n", smmu[0], smmu[0x20 / 4], smmu[0x24 / 4], smmu[0x28 / 4],
 	    smmu[0x3c / 4]);
