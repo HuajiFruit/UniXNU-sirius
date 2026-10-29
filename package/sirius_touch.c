@@ -7,13 +7,14 @@
  * clocks, pinctrl-sdm670.c for the pins and drivers/input/touchscreen/fts_521 for the chip protocol.
  *
  * Wiring: SDA/SCL on gpio6/gpio7 (function qup9), interrupt on gpio125 (active low), reset on gpio99, the I/O rail on gpio26
- * (tp_vddio_vreg, already on from boot) and the analog rail on PM660L LDO6 (vreg_l6b_3p3, an RPMh regulator this port cannot
- * vote for yet). The SE runs from XO (19.2 MHz) with the Linux 400 kHz divider set.
+ * (tp_vddio_vreg, already on from boot) and the analog rail on PM660L LDO6 (vreg_l6b_3p3), an RPMh regulator voted on here. The SE
+ * runs from XO (19.2 MHz) with the Linux 400 kHz divider set.
  *
- * sirius-touch=1 starts one kernel thread from the late display probe. It votes the QUP clocks on, programs the pins, resets the
- * chip, reads its chip ID (0x36 0x39 for an FTM5), and if that answers it turns sensing on and polls the event FIFO. Contacts are
- * published through native_touch_* (the board side of ShengHidInput) and every step is a TOUCH console line. The SE is touched only
- * after its clocks report running: an unclocked register access stalls the bus.
+ * sirius-touch=1 starts one kernel thread from the late display probe. It votes the QUP clocks on, programs the pins, power-cycles
+ * the chip in the order of fts_chip_powercycle() (reset low, vdd, avdd through RPMh, reset high), waits for its controller-ready
+ * event, reads its chip ID (0x36 0x39 for an FTM5), turns sensing on and polls the event FIFO. Contacts are published through
+ * native_touch_* (the board side of ShengHidInput) and every step is a TOUCH console line. The SE is touched only after its clocks
+ * report running: an unclocked register access stalls the bus.
  */
 
 typedef unsigned int uint32_t;
@@ -143,7 +144,8 @@ native_touch_set_sink(void (*sink)(void *), void *context)
 	touch_sink = sink;
 }
 
-/* [0] stage reached, [1] chip id, [2] fw version, [3] events read, [4] contacts begun, [5] I2C errors, [6] last M_IRQ status */
+/* [0] stage reached, [1] chip id, [2] fw version, [3] events read, [4] contacts begun, [5] I2C errors, [6] last M_IRQ status,
+ * [7] bytes read by the last transfer */
 volatile uint32_t sirius_touch_state[8];
 
 static void
@@ -344,6 +346,138 @@ se_setup(void)
 	return 1;
 }
 
+/*
+ * The analog rail: PM660L LDO6 ("ldob6") through RPMh, as qcom-rpmh-regulator.c does it. Its VRM address comes from the command
+ * database the AOP leaves at 0x85fe0000 (cmd-db.c); the request goes through the first ACTIVE TCS of the apps RSC (drv-2 at
+ * 0x179e0000, TCSes at +0xd00, the two ACTIVE ones first in qcom,tcs-config) with a response requested, and completion is polled
+ * on the TCS's IRQ_STATUS bit (no RSC interrupt handler here). Commands: voltage (VRM +0x0, mV), mode (+0x8, PMIC4 LDO HPM = 7),
+ * enable (+0x4). Nothing else in this port drives RPMh, so the TCS is free.
+ */
+#define CMD_DB_BASE         0x85fe0000u
+#define CMD_DB_SIZE         0x20000u
+#define RSC_DRV2_BASE       0x179e0000u
+#define RSC_TCS_OFFSET      0xd00u
+#define RSC_TCS_STRIDE      672u
+
+static uint32_t
+cmd_db_byte(volatile uint32_t *db, uint32_t offset)
+{
+	return (db[offset / 4] >> (8 * (offset & 3))) & 0xff;
+}
+
+static uint32_t
+cmd_db_u16(volatile uint32_t *db, uint32_t offset)
+{
+	return cmd_db_byte(db, offset) | (cmd_db_byte(db, offset + 1) << 8);
+}
+
+/* cmd_db_read_addr(): struct cmd_db_header (version, magic db 30 03 0c, 8 x struct rsc_hdr of 16 bytes, checksum, reserved) and
+ * then the data; each rsc_hdr's entries (24 bytes: id[8], priority[2], addr, len, offset) start at data + header_offset. */
+static uint32_t
+cmd_db_lookup(volatile uint32_t *db, const char *name)
+{
+	if (db[1] != 0x0c0330dbu) {
+		printf("TOUCH cmd-db magic %08x, not db 30 03 0c\n", db[1]);
+		return 0;
+	}
+	uint8_t query[8] = { 0 };
+	for (unsigned c = 0; c < 8 && name[c]; ++c) {
+		query[c] = (uint8_t)name[c];
+	}
+	for (unsigned slave = 0; slave < 8; ++slave) {
+		uint32_t header = 8 + 16 * slave;
+		if (!cmd_db_u16(db, header)) {                         /* slv_id 0 ends the table, as cmd_db_get_header() */
+			break;
+		}
+		uint32_t entries = 0x90 + cmd_db_u16(db, header + 2), count = cmd_db_u16(db, header + 6);
+		for (unsigned i = 0; i < count && entries + 24 * (i + 1) <= CMD_DB_SIZE; ++i) {
+			uint32_t entry = entries + 24 * i, match = 1;
+			for (unsigned c = 0; c < 8; ++c) {                  /* memcmp of the zero-padded 8-byte id */
+				if (cmd_db_byte(db, entry + c) != query[c]) {
+					match = 0;
+					break;
+				}
+			}
+			if (match) {
+				return db[(entry + 16) / 4];
+			}
+		}
+	}
+	return 0;
+}
+
+static int
+rpmh_write_ldo(uint32_t vrm, uint32_t millivolts)
+{
+	volatile uint32_t *drv = (volatile uint32_t *)ml_io_map(RSC_DRV2_BASE, 0x10000);
+	if (!drv) {
+		return 0;
+	}
+	uint32_t id = drv[0], major = (id >> 16) & 0xff;
+	/* rpmh_rsc_reg_offset_ver_2_7 / _3_0 */
+	uint32_t control = major >= 3 ? 0x24 : 0x14, enable = major >= 3 ? 0x2c : 0x1c, msgid = major >= 3 ? 0x34 : 0x30;
+	uint32_t cmd_stride = major >= 3 ? 24 : 20, cmd_status = major >= 3 ? 0x40 : 0x3c, tcs_status = major >= 3 ? 0x28 : 0x18;
+	volatile uint8_t *tcs = (volatile uint8_t *)drv + RSC_TCS_OFFSET;    /* TCS 0 */
+#define TCS_REG(offset) (*(volatile uint32_t *)(tcs + (offset)))
+	printf("TOUCH rsc drv2 id=%08x config=%08x tcs0 control=%08x enable=%08x status=%08x\n", id, drv[0x0c / 4], TCS_REG(control),
+	    TCS_REG(enable), TCS_REG(tcs_status));
+	const uint32_t addr[3] = { vrm + 0x0, vrm + 0x8, vrm + 0x4 }, data[3] = { millivolts, 7, 1 };
+	TCS_REG(0x00) = TCS_REG(0x00) | 1u;                          /* RSC_DRV_IRQ_ENABLE: TCS 0 */
+	for (unsigned j = 0; j < 3; ++j) {
+		/* CMD_MSGID_LEN | CMD_MSGID_WRITE | CMD_MSGID_RESP_REQ */
+		TCS_REG(msgid + cmd_stride * j) = 8u | (1u << 16) | (1u << 8);
+		TCS_REG(msgid + 4 + cmd_stride * j) = addr[j];
+		TCS_REG(msgid + 8 + cmd_stride * j) = data[j];
+	}
+	TCS_REG(enable) = 0x7u;                                     /* exactly these three: nothing stale is sent again */
+	/* __tcs_set_trigger(true) */
+	uint32_t value = TCS_REG(control) & ~(1u << 24);
+	TCS_REG(control) = value;
+	value &= ~(1u << 16);
+	TCS_REG(control) = value;
+	TCS_REG(control) = 1u << 16;
+	__asm__ volatile ("dsb sy" ::: "memory");
+	TCS_REG(control) = (1u << 16) | (1u << 24);
+	__asm__ volatile ("dsb sy" ::: "memory");
+	unsigned spins = 0;
+	while (!(TCS_REG(0x04) & 1u) && spins < 100) {               /* RSC_DRV_IRQ_STATUS */
+		IOSleep(1);
+		++spins;
+	}
+	uint32_t status[3];
+	for (unsigned j = 0; j < 3; ++j) {
+		status[j] = TCS_REG(cmd_status + cmd_stride * j);
+	}
+	/* tcs_tx_done(): trigger off, commands off, interrupt cleared. */
+	value = TCS_REG(control) & ~(1u << 24);
+	TCS_REG(control) = value;
+	TCS_REG(control) = value & ~(1u << 16);
+	TCS_REG(enable) = 0;
+	TCS_REG(0x08) = 1u;                                          /* RSC_DRV_IRQ_CLEAR */
+	__asm__ volatile ("dsb sy" ::: "memory");
+#undef TCS_REG
+	printf("TOUCH avdd ldob6 vrm=%05x %umV done=%u ms cmd status %08x %08x %08x\n", vrm, millivolts, spins, status[0], status[1],
+	    status[2]);
+	/* CMD_STATUS_COMPL on every command: the AOP applied and acknowledged them. */
+	return spins < 100 && (status[0] & status[1] & status[2] & (1u << 16));
+}
+
+static int
+avdd_on(void)
+{
+	volatile uint32_t *db = (volatile uint32_t *)ml_io_map(CMD_DB_BASE, CMD_DB_SIZE);
+	if (!db) {
+		return 0;
+	}
+	uint32_t vrm = cmd_db_lookup(db, "ldob6");
+	printf("TOUCH cmd-db ldob6 addr=%08x\n", vrm);
+	/* A VRM resource: slave id CMD_DB_HW_VRM = 4 in bits 19:16 (cmd-db.c SLAVE_ID). */
+	if (!vrm || ((vrm >> 16) & 0xf) != 4) {
+		return 0;
+	}
+	return rpmh_write_ldo(vrm, 3300);
+}
+
 /* Contacts by FTS touch id (0..15): the published set is rebuilt from it after every batch of events. */
 static int contact_x[16], contact_y[16];
 static uint16_t contact_down;
@@ -433,42 +567,51 @@ touch_thread(void *parameter, int wait_result)
 		return;
 	}
 	sirius_touch_state[0] = 3;
-	/* Pins: SDA/SCL to qup9 with pull-ups, the interrupt input pulled up, the I/O rail on, then a reset pulse. */
+	/* Pins: SDA/SCL to qup9 with pull-ups, the interrupt input pulled up. */
 	tlmm_cfg(6)[0] = TLMM_CFG_FUNC(1) | TLMM_CFG_DRIVE(2) | TLMM_CFG_PULL_UP;
 	tlmm_cfg(7)[0] = TLMM_CFG_FUNC(1) | TLMM_CFG_DRIVE(2) | TLMM_CFG_PULL_UP;
 	tlmm_cfg(125)[0] = TLMM_CFG_FUNC(0) | TLMM_CFG_DRIVE(16) | TLMM_CFG_PULL_UP;
-	gpio_output(26, 1);
+	/* fts_chip_powercycle(): reset low, vdd (gpio26) on, 1 ms, avdd (LDO6) on, 5 ms, then 10 ms and reset high. The reset pin is
+	 * the chip reset: with a reset gpio fts_system_reset() toggles it instead of writing ADDR_SYSTEM_RESET. */
 	gpio_output(99, 0);
+	gpio_output(26, 1);
+	IOSleep(1);
+	int avdd = avdd_on();
+	IOSleep(5);
 	IOSleep(10);
 	gpio_output(99, 1);
-	IOSleep(150);
-	printf("TOUCH pins sda/scl cfg=%08x/%08x irq=%u reset=%u vddio=%u\n", tlmm_cfg(6)[0], tlmm_cfg(7)[0], gpio_input(125),
-	    gpio_input(99), gpio_input(26));
+	printf("TOUCH power avdd=%d pins sda/scl cfg=%08x/%08x irq=%u reset=%u vddio=%u\n", avdd, tlmm_cfg(6)[0], tlmm_cfg(7)[0],
+	    gpio_input(125), gpio_input(99), gpio_input(26));
+
+	/* pollForEvent(EVT_ID_CONTROLLER_READY): the chip may not answer while it boots, so bus errors only count. */
+	int ready = 0;
+	uint32_t error = 0, errors = 0;
+	for (unsigned i = 0; i < 100 && !ready; ++i) {
+		IOSleep(10);
+		error = fts_read_event(data);
+		if (error) {
+			++errors;
+		} else if (data[0] == EVT_CONTROLLER_READY) {
+			ready = 1;
+		} else if (data[0] != EVT_NOEVENT) {
+			printf("TOUCH boot event %02x %02x %02x %02x %02x %02x %02x %02x\n", data[0], data[1], data[2], data[3], data[4],
+			    data[5], data[6], data[7]);
+		}
+	}
+	printf("TOUCH reset ready=%d bus errors=%u last=%08x irq=%u\n", ready, errors, error, gpio_input(125));
 
 	static const uint8_t chip_id[] = { FTS_HW_REG, 0x20, 0x00, 0x00, 0x00 };   /* ADDR_DCHIP_ID, then the firmware version */
 	uint8_t id[8] = { 0 };
-	uint32_t error = fts_write_read(chip_id, sizeof(chip_id), id, sizeof(id));
+	error = fts_write_read(chip_id, sizeof(chip_id), id, sizeof(id));
 	printf("TOUCH chip id error=%08x irq=%08x read=%u bytes %02x %02x %02x %02x %02x %02x %02x %02x\n", error, sirius_touch_state[6],
 	    sirius_touch_state[7], id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7]);
 	if (error) {
-		printf("TOUCH no answer at 0x49: if it NACKs, the analog rail (PM660L LDO6) is likely off\n");
+		printf("TOUCH no answer at 0x49\n");
 		return;
 	}
 	sirius_touch_state[1] = ((uint32_t)id[0] << 8) | id[1];
 	sirius_touch_state[2] = ((uint32_t)id[4] << 8) | id[5];
 	sirius_touch_state[0] = 4;
-
-	/* fts_system_reset: 0x80 to ADDR_SYSTEM_RESET, then wait for EVT_ID_CONTROLLER_READY. */
-	static const uint8_t reset[] = { FTS_HW_REG, 0x20, 0x00, 0x00, 0x24, 0x80 };
-	error = fts_write_read(reset, sizeof(reset), 0, 0);
-	int ready = 0;
-	for (unsigned i = 0; i < 50 && !error && !ready; ++i) {
-		IOSleep(10);
-		if (!fts_read_event(data) && data[0] == EVT_CONTROLLER_READY) {
-			ready = 1;
-		}
-	}
-	printf("TOUCH reset error=%08x ready=%d\n", error, ready);
 	/* Sense on: SCAN_MODE_ACTIVE with ACTIVE_MULTI_TOUCH (fts_mode_handler). */
 	static const uint8_t sense_on[] = { FTS_SCAN_MODE, 0x00, 0x01 };
 	error = fts_write_read(sense_on, sizeof(sense_on), 0, 0);

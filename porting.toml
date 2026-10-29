@@ -37,6 +37,7 @@ procedure = [
   "Compile the hardware tree through the payload step (prototype: dtc -I dts -O dtb -i <soc>/dts dts/sirius.dts).",
 ]
 findings = [
+  "[kernel] archives build build-sirius-gpu.py into libShengPlatformPower.a and kernel_args pass sirius-gpu=1 for the Adreno 616 phase-1 probe (see the gpu area).",
   "[kernel] archives build build-sirius-touch.py into libShengPlatformPower.a and kernel_args pass sirius-touch=1 for the FTS521 touch probe (see the input area).",
   "[adt.chosen.u32] sets ephemeral-storage = 1 so datamigrator skips the first-boot migration: kernel ca828cc / payload 95bcb3a showed the migration bar unfinished at t=2177 s with the CPU 87% idle and the plugin wrapper killed by signal 9; the staged system apps are not installed while it is set (see the diagnostics area).",
   "kernel_args pass validation_disables=0x10 so user stackshots are refused (see the diagnostics area).",
@@ -310,6 +311,7 @@ procedure = [
   "Build kernel, payload and volume, boot, and read the panel: stage lines, TOPO, PROBE, MEM and panic text.",
 ]
 findings = [
+  "native_legacy_display_late_probe also calls sirius_gpu_start() (package/sirius_gpu.c, sirius-gpu=1; see the gpu area).",
   "native_legacy_display_late_probe also calls sirius_touch_start() (package/sirius_touch.c, sirius-touch=1; see the input area).",
   "With the CoreUI fixup the panel shows crashes=0 at 335 s (iconservicesagent no longer dies) and the migration progress bar at about half; console: every load of dyld_shared_cache_arm64.11 logs text-fixup +0x34f3b84 (8 bytes) applied.",
   "iconservicesagent's crash is CI::GLContext::init+220 calling blr x8 with x8 from the GL dispatch table that GetMacroContext left zeroed (no OpenGL ES driver), reached from +[CUIShapeEffectStack sharedCIContext] = [CIContext contextWithOptions:[CUIShapeEffectStack preferredCIContextOptions]]. CoreImage has no environment switch to a CPU renderer (its CI_* strings checked). board.toml [payload] text_fixups patches that bl (dyld_shared_cache_arm64.11 file offset 0x34f3b84, unslid 0x1a31d7b84) to mov x0, xzr: -[_CUIGraphicVariantVectorGlyph _createGraphicVariantImageAtScale:] then returns the NULL of [nil createCGImage:fromRect:] and -[IFSymbol imageForGraphicSymbolDescriptor:] branches on it (cbz x26), so the symbol draws empty.",
@@ -365,6 +367,7 @@ procedure = [
   "Follow the input guide once a touch controller is known, then select an implementation.",
 ]
 findings = [
+  "Second probe, after a review against Linux (not run yet): the analog rail is voted on through RPMh (cmd-db \"ldob6\" lookup with zero-padded 8-byte ids, VRM slave id 4 = CMD_DB_HW_VRM; apps RSC drv-2 at 0x179e0000, the first ACTIVE TCS at +0xd00, voltage 3300 mV, mode 7 (PMIC4 LDO HPM), enable, each with a response requested, completion polled on IRQ_STATUS bit 0, command-enable mask written exactly, per rpmh-rsc.c ver 2.7/3.0 offsets), in fts_chip_powercycle() order (reset low, vdd, 1 ms, avdd, 5 + 10 ms, reset high); the chip reset is the gpio toggle (fts_system_reset with a reset gpio), followed by pollForEvent(EVT_ID_CONTROLLER_READY) for up to 1 s before the chip id read. Also: 5 broken string literals from a scripted edit were found by re-reading and fixed; both C files pass clang -fsyntax-only -Wall -Wextra.",
   "Kernel 66d1272 (commit 10f440b) / payload 7995ea8, at 77 s (docs/evidence/sirius-touch-20261028-probe1.log): the QUP1 clocks run after the vote (m_ahb, s_ahb, s1 CBCR CLK_OFF clear, vote 0x45b00000), the SE1 RCG already selects XO (cfg 0x00100000), QUP1 hw_ver 0x10010000, SE1 runs I2C firmware (proto 3) with FIFO mode and a 16-word TX FIFO; the chip acks 0x49 (no NACK on any transfer) but every read returns zeros and the reset never reports ready, while gpio125 stays low (events pending). The FIFO packing was LSB-first; i2c-qcom-geni.c packs MSB-first (geni_se_config_packing(..., true, true, true)), so every byte reached the chip bit-reversed. Fixed: TX/RX packing 0x0007f8fe/0x000ffefe, and the RX FIFO is drained after CMD_DONE.",
   "package/sirius_touch.c (sirius-touch=1, started from native_legacy_display_late_probe): votes the QUP1 M/S AHB and SE1 clocks (GCC 0x5200c bits 20/21/23), checks their CBCRs before any SE access, sets the SE1 RCG to XO, programs FIFO-mode GENI I2C at 400 kHz (Linux geni_i2c_clk_map_19p2mhz: divider 2, 5/11/22), sets the pins, drives gpio26 high, pulses reset on gpio99, reads the FTM5 chip id (0xfa 0x20000000, expected 0x36 0x39), resets the chip (0x80 to 0x20000024, waits for event 0x03), turns sensing on (0xa0 0x00 0x01) and polls the event FIFO (0x86, 8-byte events: enter 0x13, motion 0x23, leave 0x33). Contacts go out as TOUCH console lines and through native_touch_* (the board side of ShengHidInput, in its 30480 x 20320 units). Not run on hardware yet.",
   "The SDCC1 probe does not touch the ADT buttons, so the input row and its hold/voldown/volup mapping are unchanged.",
@@ -385,7 +388,7 @@ evidence = []
 id = "gpu"
 status = "planned"
 components = []
-paths = ["docs/HANDOFF.zh-CN.md"]
+paths = ["docs/HANDOFF.zh-CN.md", "package/sirius_gpu.c", "scripts/build-sirius-gpu.py"]
 inputs = [
   "Adreno 616 (A6xx gen1, the A615 family with A615/A618/A619): GPU at 0x05000000 (0x40000) with cx_mem 0x0509e000, GPU SPI 300; GMU at 0x0506a000 (0x30000) with SPI 304 (hfi) and 305 (gmu); GMU PDC at 0x0b280000 and its sequencer at 0x0b480000 (0x10000 each); GPU CC (sdm845-gpucc) at 0x05090000 (0x9000); the GPU's own SMMUv2 at 0x05040000 (0x10000), global SPIs 229/231, context SPIs 364-371, GPU stream 0, GMU stream 5; ZAP region 0x95c15000 (0x2000). Values from mainline sdm670.dtsi; the SDM710 board's own reserved-memory and chip ID are not yet read on hardware.",
   "Firmware: 57UU/sirius-distro firmware/gpu carries a615_zap.mbn (14272 bytes, from ellyq/firmware-mainline-pyxis f2e4f88, README: GPU init verified on this phone), a630_sqe.fw and a630_gmu.bin (Debian trixie firmware-qcom-soc 20250410-2). Linux loads the ZAP as qcom/sdm710/pyxis/a615_zap.mbn.",
@@ -400,6 +403,7 @@ procedure = [
   "First milestone, in order: CX GDSC and GMU clocks, GMU firmware boot and an HFI reply, GX on, CP start, one bounded submission whose fence completes. Metal and presentation come after.",
 ]
 findings = [
+  "Phase 1 of the A616 bring-up is a standalone probe, package/sirius_gpu.c (sirius-gpu=1, from native_legacy_display_late_probe), before the Adreno6xx fork: GCC votes 0x52004 bits 15/16 (GPLL0 and its divided output to the GPU) and the gpu_cfg_ahb (0x71004), gpu_memnoc_gfx (0x7100c), gpu_snoc_dvm_gfx (0x71018) and ddrss_gpu_axi (0x44038) branches, each checked for CLK_OFF; then the GPU CC CX GDSC (0x106c: wait values EN_REST 2, EN_FEW 8, CLK_DIS 8, SW_COLLAPSE cleared, PWR_ON polled in gds_hw_ctrl 0x1540, gdsc.c); then the GMU RCG (0x1120) at 200 MHz (source 6 = GPLL0 main div, divider 1.5, rcg2_shared force-on around the update) and the cx_gmu (0x1098) and cxo (0x109c) branches. It then only reads: GMU registers at 0x05000000 + 4 x dword offset (a6xx_gmu.xml: CM3_SYSRESET 0x1f800, FW_INIT_RESULT 0x1f81c, CORE_FW_VERSION 0x1d3f8, ALWAYS_ON_COUNTER_L 0x1f888 twice 10 ms apart, SPTPRAC 0x1f8d0, RPMH_POWER_STATE 0x1f8ec, HFI_CTRL_STATUS 0x1f980) and the GPU SMMU global sCR0/IDR0/IDR1/IDR2/IDR7. Adreno6xx is not in this UniXNU catalog and its build needs ArmSmmu4K, AdrenoPM4, AdrenoFirmware and generated ABI bindings, so the fork follows once the CX sequence is proven on hardware. Not run on hardware yet.",
   "Without a Metal device CoreImage falls back to an OpenGL context and crashes there: iconservicesagent dies with SIGSEGV at PC 0 in CI::GLContext::init() + 220, reached from IconServices -[ISGraphicSymbolResource imageForSize:scale:] through CoreUI +[CUIShapeEffectStack sharedCIContext] while rasterizing an SF Symbol glyph (docs/evidence/sirius-crash-symbols-20261028.log). launchd restarts it; any process that rasterizes symbol glyphs through CoreUI can hit the same path until a GPU driver exists.",
   "The catalog's Adreno740 targets the A740 of SM8550, and Adreno6xx's backend is written for the A642L of SM7325 (A660 firmware, QSMMUv500 with TBUs, AOP-hosted PDC, ACD through AOP QMP, Yupik clocks).",
   "For the A616 the backend needs: the legacy GMU/HFI protocol (Linux sets gmu->legacy for the A630 family), PDC and RSCC sequences with the PDC in its own MMIO window rather than in AOP, the a615_hwcg clock-gating table and a630 protect list, sdm845 GPU CC clock and GDSC handling, and a plain SMMUv2 (no TBU windows).",
@@ -587,6 +591,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "package/sirius_gpu.c logs each GPU phase-1 step as a GPU console line (see the gpu area).",
   "The TOUCH lines of the first probe are docs/evidence/sirius-touch-20261028-probe1.log; the chip-id line now also prints the transfer's M_IRQ status and the bytes read.",
   "Kernel ca828cc / payload 38305ff (commit c54ee19, ephemeral-storage = 1): iOS reaches the Setup welcome screen (\"hei\", status bar, clock, battery icon) at about 358 s without a GPU driver (docs/evidence/sirius-spawn-20261028-ephemeral.log): com.apple.datamigrator now exits 0 after 18 to 35 s (four runs between 150 and 302 s), Setup is exec'd at 225 s, PosterBoard at 208 s; the wallpaper poster extensions crash-loop (KaleidoscopePoster signal 11, AegirPoster signal 6, CollectionsPoster killed by libxpc), crashes=20 at 358 s. Touch does nothing: there is no touch driver yet.",
   "package/sirius_touch.c logs each touch bring-up step as a TOUCH console line (see the input area).",
