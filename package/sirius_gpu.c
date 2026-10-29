@@ -230,6 +230,28 @@ gpu_thread(void *parameter, int wait_result)
 	sirius_gpu_state[3] = smmu[0x20 / 4];
 	printf("GPU smmu scr0=%08x idr0=%08x idr1=%08x idr2=%08x idr7=%08x\n", smmu[0], smmu[0x20 / 4], smmu[0x24 / 4], smmu[0x28 / 4],
 	    smmu[0x3c / 4]);
+	/* Phase 2a, still read-only: how the boot chain left the stream mapping, before the GMU (stream 5) needs a context.
+	 * SMMUv2: SMR[n] at 0x800 + 4n and S2CR[n] at 0xc00 + 4n (GR0), CBAR[n] at 0x1000 + 4n and CBA2R[n] at 0x1800 + 4n (GR1);
+	 * context bank n at (2 << NUMPAGENDXB) pages + n pages, with SCTLR 0x0, TTBR0 0x20, TCR 0x30, MAIR0 0x38, FSR 0x58. */
+	{
+		uint32_t idr0 = smmu[0x20 / 4], idr1 = smmu[0x24 / 4];
+		uint32_t groups = idr0 & 0xff, banks = idr1 & 0xff, page = (idr1 >> 31) ? 0x10000u : 0x1000u;
+		uint32_t global_pages = 2u << ((idr1 >> 28) & 7);
+		volatile uint32_t *whole = (volatile uint32_t *)ml_io_map(GPU_SMMU_BASE, 0x10000);
+		if (!whole || (global_pages + banks) * page > 0x10000u || groups > 16 || banks > 16) {
+			printf("GPU smmu layout groups=%u banks=%u page=%x global_pages=%u not dumped\n", groups, banks, page, global_pages);
+		} else {
+			for (uint32_t n = 0; n < groups; ++n) {
+				printf("GPU smmu smr%u=%08x s2cr%u=%08x\n", n, whole[(0x800 + 4 * n) / 4], n, whole[(0xc00 + 4 * n) / 4]);
+			}
+			for (uint32_t n = 0; n < banks; ++n) {
+				volatile uint32_t *cb = whole + (global_pages + n) * page / 4;
+				printf("GPU smmu cb%u cbar=%08x cba2r=%08x sctlr=%08x ttbr0=%08x%08x tcr=%08x mair0=%08x fsr=%08x\n", n,
+				    whole[(0x1000 + 4 * n) / 4], whole[(0x1800 + 4 * n) / 4], cb[0], cb[0x24 / 4], cb[0x20 / 4], cb[0x30 / 4],
+				    cb[0x38 / 4], cb[0x58 / 4]);
+			}
+		}
+	}
 	sirius_gpu_state[0] = 5;
 	printf("GPU phase 1 done: CX powered, GMU and GPU SMMU readable\n");
 }
