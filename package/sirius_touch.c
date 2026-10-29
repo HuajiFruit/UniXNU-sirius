@@ -228,7 +228,18 @@ i2c_transfer(uint32_t op, const uint8_t *tx, uint8_t *rx, unsigned length, uint3
 		}
 		spin_us(5);
 	}
+	/* A short read can complete within one poll: take whatever the RX FIFO still holds. */
+	if (op == I2C_READ) {
+		uint32_t count = se_read(SE_GENI_RX_FIFO_STATUS) & 0x1ffffffu;
+		for (words = 0; words < count && words < 16; ++words) {
+			uint32_t value = se_read(SE_GENI_RX_FIFOn);
+			for (unsigned b = 0; b < 4 && done < length; ++b) {
+				rx[done++] = (uint8_t)(value >> (8 * b));
+			}
+		}
+	}
 	sirius_touch_state[6] = seen;
+	sirius_touch_state[7] = done;
 	if (!(seen & M_CMD_DONE) || (seen & M_I2C_ERRORS)) {
 		if (!(seen & M_CMD_DONE)) {
 			/* Linux geni_i2c_abort_xfer: abort the command and wait for its acknowledgement. */
@@ -319,11 +330,12 @@ se_setup(void)
 	se_write(SE_GENI_RX_WATERMARK_REG, depth - 1);
 	se_write(SE_GENI_RX_RFR_WATERMARK_REG, depth);
 	se_write(SE_GENI_M_IRQ_EN, 0x7fffffffu);  /* every status bit visible except the secondary-sequencer summary */
-	/* geni_se_config_packing(8 bits, 4 per word, LSB first) for both directions. */
-	se_write(SE_GENI_TX_PACKING_CFG0, 0x0004380eu);
-	se_write(SE_GENI_TX_PACKING_CFG1, 0x000c3e0eu);
-	se_write(SE_GENI_RX_PACKING_CFG0, 0x0004380eu);
-	se_write(SE_GENI_RX_PACKING_CFG1, 0x000c3e0eu);
+	/* geni_se_config_packing(8 bits, 4 per word, msb_to_lsb = true) for both directions, as i2c-qcom-geni.c: I2C sends each byte
+	 * MSB first. (LSB-first packing put every byte on the wire bit-reversed: the chip acked its address and read back zeros.) */
+	se_write(SE_GENI_TX_PACKING_CFG0, 0x0007f8feu);
+	se_write(SE_GENI_TX_PACKING_CFG1, 0x000ffefeu);
+	se_write(SE_GENI_RX_PACKING_CFG0, 0x0007f8feu);
+	se_write(SE_GENI_RX_PACKING_CFG1, 0x000ffefeu);
 	se_write(SE_GENI_BYTE_GRAN, 0);
 	/* qcom_geni_i2c_conf() with geni_i2c_clk_map_19p2mhz for 400 kHz: divider 2, t_high 5, t_low 11, t_cycle 22. */
 	se_write(SE_GENI_CLK_SEL, 0);
@@ -436,8 +448,8 @@ touch_thread(void *parameter, int wait_result)
 	static const uint8_t chip_id[] = { FTS_HW_REG, 0x20, 0x00, 0x00, 0x00 };   /* ADDR_DCHIP_ID, then the firmware version */
 	uint8_t id[8] = { 0 };
 	uint32_t error = fts_write_read(chip_id, sizeof(chip_id), id, sizeof(id));
-	printf("TOUCH chip id error=%08x bytes %02x %02x %02x %02x %02x %02x %02x %02x\n", error, id[0], id[1], id[2], id[3], id[4],
-	    id[5], id[6], id[7]);
+	printf("TOUCH chip id error=%08x irq=%08x read=%u bytes %02x %02x %02x %02x %02x %02x %02x %02x\n", error, sirius_touch_state[6],
+	    sirius_touch_state[7], id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7]);
 	if (error) {
 		printf("TOUCH no answer at 0x49: if it NACKs, the analog rail (PM660L LDO6) is likely off\n");
 		return;

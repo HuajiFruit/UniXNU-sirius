@@ -1,0 +1,8 @@
+# sirius, kernel 66d1272 (commit 10f440b, sirius-touch=1) / payload 7995ea8: the TOUCH console lines (first window, unique)
+    77.0 TOUCH clk vote=45b00000 m_ahb=00000000 s_ahb=00000000 s1=00004220 rcg cmd=00000000 cfg=00100000
+    77.0 TOUCH qup1 hw_ver=10010000
+    77.0 TOUCH se fw=00000300 proto=3 fifo_disable=0 tx_depth=16 status=00000000
+    77.2 TOUCH pins sda/scl cfg=00000007/00000007 irq=0 reset=1 vddio=1
+    77.2 TOUCH chip id error=00000000 bytes 00 00 00 00 00 00 00 00
+    77.8 TOUCH reset error=00000000 ready=0
+    77.8 TOUCH sense on error=00000000 irq=0
