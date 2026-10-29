@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IODeviceMemory.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOUserClient.h>
@@ -561,8 +562,19 @@ void native_legacy_display_probe(void) {
 extern "C" void native_keystore_probe(void);
 // The FTS521 touch probe (package/sirius_touch.c, sirius-touch=1) starts its polling thread here.
 extern "C" void sirius_touch_start(void);
-// The Adreno 616 phase-1 probe (package/sirius_gpu.c, sirius-gpu=1): CX power, then GMU and GPU SMMU reads.
+// The Adreno 616 probe (package/sirius_gpu.c): sirius-gpu=1 CX power, then GMU and GPU SMMU reads; =2 also boots the GMU.
 extern "C" void sirius_gpu_start(void);
+// Phase 2's memory (the GPU SMMU's page tables, the GMU's buffers): physically contiguous below 4 GiB, as NativeEmmc's bounce,
+// and kept for the boot. Cached; sirius_gpu.c cleans and invalidates it around every exchange with the GMU.
+extern "C" void *sirius_gpu_dma_alloc(uint32_t bytes, uint64_t *physical) {
+    IOBufferMemoryDescriptor *buffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
+        kIODirectionInOut | kIOMemoryPhysicallyContiguous, bytes, 0x00000000fffff000ULL);
+    if (buffer == nullptr) {
+        return nullptr;
+    }
+    *physical = buffer->getPhysicalSegment(0, nullptr, kIOMemoryMapperNone);
+    return buffer->getBytesNoCopy();
+}
 // The touch screen for iOS (package/SiriusHidProbe.cpp, sirius-touch-hid=1): ShengHidInput's touch-only device.
 extern "C" void sirius_hid_touch_start(void);
 

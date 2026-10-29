@@ -66,7 +66,7 @@ archives = [
   "build-sirius-emmc.py",             # read-only SDCC1 probe (kits/sirius/sirius_emmc.c)
   "build-sirius-cpufreq.py",          # cpufreq-hw level request (kits/sirius/sirius_cpufreq.c)
   "build-sirius-touch.py",            # FTS521 touch probe on QUP1 SE1 (kits/sirius/sirius_touch.c)
-  "build-sirius-gpu.py",              # Adreno 616 phase 1: CX power, GMU and GPU SMMU reads (kits/sirius/sirius_gpu.c)
+  "build-sirius-gpu.py",              # Adreno 616: CX power, GMU/SMMU reads, GMU firmware boot (kits/sirius/sirius_gpu.c)
   "build-native-emmc.py",             # the IOKit block driver (kits/sirius/NativeEmmc.cpp); its
                                      # IOStorageFamily imports are bound to the original kernelcache
 ]
@@ -175,7 +175,7 @@ kernel_args = [
                                     # launched (user server timeout); off, the in-kernel IOHIDEventDriver matches instead
   "sirius-skip-setup=1",            # package/BootWatchdogPolicy.c: write Setup's done flags (purplebuddy) and SpringBoard's
                                     # no-watchdog/no-dim prefs before launchd, so the boot goes past Setup to SpringBoard
-  "sirius-gpu=1",                   # package/sirius_gpu.c: Adreno 616 phase 1 (CX GDSC, GMU clock, GMU/SMMU reads)
+  "sirius-gpu=2",                   # package/sirius_gpu.c: Adreno 616 phases 1-2 (CX power, GMU SMMU context, GMU boot, HFI)
   "validation_disables=0x10",       # KF_STACKSHOT_OVRD: user stackshots return KERN_NOT_SUPPORTED. Watchdogs ask
                                     # for one before they kill a hung job, and on this port threads keep changing while
                                     # it runs, so the DEVELOPMENT check panics: "thread wait info count mismatch while
