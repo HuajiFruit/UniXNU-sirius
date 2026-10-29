@@ -167,7 +167,9 @@ kernel_args = [
                                     # persistent Data SpringBoard does not finish booting without them
   "sirius-spawn-log=1",             # package/BootProgress.c: a SPAWN console line per exec and exit, with the second
   "sirius-touch=1",                 # package/sirius_touch.c: QUP1 SE1 I2C, FTS521 chip id, then the event FIFO
-  "sirius-touch-hid=1",             # package/SiriusHidProbe.cpp: publish the touch screen (ShengHidInput) to iOS
+  "sirius-touch-hid=1",             # package/SiriusHidProbe.cpp: publish the touch screen (ShengHidInput) to iOS, as sheng's
+                                    # combined keyboard+touch device (the in-kernel IOHIDEventDriver has no digitizer rule)
+  "sheng-touch-hid=1",              # NativeHidInput: add the touch screen collection to that combined device
   "dk=0",                           # DriverKit off (gIODKDebug without kIODKEnable): dext personalities never match. With it on,
                                     # AppleUserHIDEventService took the touch screen and its AppleUserHIDDrivers server was never
                                     # launched (user server timeout); off, the in-kernel IOHIDEventDriver matches instead

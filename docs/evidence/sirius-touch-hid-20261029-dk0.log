@@ -1,0 +1,10 @@
+# sirius, kernel b5a62b2 (commit 96cfbd3, dk=0, touch-only device) / payload 7656d0e: HID lines of all four windows (unique).
+TOUCH hid touch screen started on IOHIDResource (metaclass status 0)
+SPAWN 140s exec 26 SpringBoard
+SPAWN 140s exec 64 driverkitd
+SPAWN 145s exec 56 backboardd
+KextLog: driverkitd is not active
+KextLog: driverkitd is active
+SPAWN 225s exec 221 Setup
+# No event driver attached below the device in ~20 minutes (no 'event driver ... published' line).
+# The kernel's IOHIDEventDriver personalities (IOHIDFamily, this kernel): HID Game Controller Pointing Driver 1/5 1/4, Peppy Touch Display 0xc/1 (Transport FIFO), HID Buttons 0xb/1, HID Keyboard Driver 1/6 1/7, HID Sensor 0xff0c/3: none for a digitizer.

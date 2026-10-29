@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
-// The touch screen for iOS: publishes ShengHidInput's touch-only NativeHidInput (a Digitizer/Touch Screen IOHIDDevice)
-// on IOHIDResource, fed by the FTS521 driver (package/sirius_touch.c: native_touch_* and native_touch_set_sink).
-// Adapted from UniXNU-sheng package/HidInputProbe.cpp (08cde20): the same class registration and the same properties
-// backboardd needs on the event service, without the keyboard device or scripted Home presses.
+// The touch screen for iOS: publishes ShengHidInput's NativeHidInput on IOHIDResource, fed by the FTS521 driver
+// (package/sirius_touch.c: native_touch_* and native_touch_set_sink). Adapted from UniXNU-sheng package/HidInputProbe.cpp
+// (08cde20): the same class registration and the same properties backboardd needs on the event service, without scripted
+// Home presses.
+//
+// sirius-touch-hid=1 publishes sheng's default combined device (keyboard collection first, then the touch screen; needs
+// sheng-touch-hid=1, which NativeHidInput reads): the in-kernel IOHIDEventDriver of this kernelcache has no digitizer
+// personality (its rules: game-controller pointers 1/5 and 1/4, Peppy display 0xc/1, buttons 0xb/1, keyboards 1/6 and 1/7, a
+// sensor 0xff0c/3), so a touch-only device is left to the DriverKit AppleUserHIDEventService, whose server is never launched
+// on this board. The keyboard usage matches "HID Keyboard Driver", which also dispatches the device's digitizer collection.
+// sirius-touch-hid=2 keeps the touch-only device (sheng-touch-split).
 #include <IOKit/IOService.h>
 #include <IOKit/IOLib.h>
 #include <libkern/c++/OSMetaClass.h>
@@ -16,7 +23,9 @@ extern "C" kern_return_t kernel_thread_start(void (*)(void *, wait_result_t), vo
 extern "C" void thread_deallocate(thread_t);
 extern kmod_info_t g_kernel_kmod_info;
 extern "C" void native_hid_static_init(void) __asm__("__GLOBAL__sub_I_NativeHidInput.cpp");
+extern "C" IOService *native_hid_input_allocate(void);
 extern "C" IOService *native_hid_touch_allocate(void);
+static unsigned hid_mode;
 extern "C" {
 extern kern_return_t OSKextLoadKextWithIdentifier(const char *);
 // [0] init [1] attach [2] started [3] tick [4] key report [5] key report [6] touch report [7] start failed (NativeHidInput's events)
@@ -109,7 +118,7 @@ static void hidThread(void *, wait_result_t) {
     }
     bool started = false;
     if (handle && !sirius_hid_meta_status) {
-        IOService *touch = native_hid_touch_allocate();
+        IOService *touch = hid_mode == 2 ? native_hid_touch_allocate() : native_hid_input_allocate();
         started = touch && touch->metaCast("IOHIDDevice") && touch->init() && touch->attach(resource) && touch->start(resource);
         if (!started && touch) {
             touch->detach(resource);
@@ -118,16 +127,17 @@ static void hidThread(void *, wait_result_t) {
         // The device lives for the boot: its registry attachment and work loop stay owned by IOKit.
     }
     sirius_hid_stage = started ? 4 : 5;
-    IOLog("TOUCH hid touch screen %s (metaclass status %d)\n", started ? "started on IOHIDResource" : "FAILED to start",
-        sirius_hid_meta_status);
+    IOLog("TOUCH hid %s device %s (metaclass status %d)\n", hid_mode == 2 ? "touch-only" : "keyboard+touch",
+        started ? "started on IOHIDResource" : "FAILED to start", sirius_hid_meta_status);
     OSSafeReleaseNULL(resource);
 }
 
-// Called from the late display probe (package/LegacyDisplayProbe.cpp); sirius-touch-hid=1.
+// Called from the late display probe (package/LegacyDisplayProbe.cpp); sirius-touch-hid=1 (combined) or 2 (touch-only).
 extern "C" void sirius_hid_touch_start(void) {
     unsigned enabled = 0;
     PE_parse_boot_argn("sirius-touch-hid", &enabled, sizeof(enabled));
-    if (enabled != 1 || sirius_hid_stage) return;
+    if ((enabled != 1 && enabled != 2) || sirius_hid_stage) return;
+    hid_mode = enabled;
     thread_t thread = nullptr;
     if (kernel_thread_start(hidThread, nullptr, &thread) == KERN_SUCCESS) thread_deallocate(thread);
 }
