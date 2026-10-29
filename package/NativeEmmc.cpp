@@ -340,6 +340,36 @@ nemmc_log_memory(void)
 	} else {
 		emmc_log("NEMMC db-runs none\n");
 	}
+	/* The final UEFI memory map DarwinBoot wrote into /chosen/darwinboot-efi-map (a board.toml placeholder): the ranges that
+	 * keep DRAM out of the one contiguous window, as start+bytes, EFI memory type and descriptors merged. The first three
+	 * memory reports only; the heartbeat mirrors the log buffer anyway. */
+	static unsigned efi_map_reports;
+	if (efi_map_reports < 3) {
+		efi_map_reports++;
+		IORegistryEntry *chosen = IORegistryEntry::fromPath("/chosen", gIODTPlane);
+		OSData *map = chosen ? OSDynamicCast(OSData, chosen->getProperty("darwinboot-efi-map")) : nullptr;
+		if (map && map->getLength() == 32 * 24) {
+			const uint8_t *bytes = static_cast<const uint8_t *>(map->getBytesNoCopy());
+			for (unsigned i = 0; i < 32; ++i) {
+				uint64_t start, size;
+				uint32_t type, merged;
+				memcpy(&start, bytes + i * 24, 8);
+				memcpy(&size, bytes + i * 24 + 8, 8);
+				memcpy(&type, bytes + i * 24 + 16, 4);
+				memcpy(&merged, bytes + i * 24 + 20, 4);
+				if (!size) {
+					break;
+				}
+				char line[96];
+				snprintf(line, sizeof(line), "NEMMC efi-map %llx+%llx type %u x%u\n", (unsigned long long)start,
+				    (unsigned long long)size, type, merged);
+				emmc_log(line);
+			}
+		} else {
+			emmc_log("NEMMC efi-map none\n");
+		}
+		OSSafeReleaseNULL(chosen);
+	}
 }
 
 static void

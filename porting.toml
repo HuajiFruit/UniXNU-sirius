@@ -37,6 +37,7 @@ procedure = [
   "Compile the hardware tree through the payload step (prototype: dtc -I dts -O dtb -i <soc>/dts dts/sirius.dts).",
 ]
 findings = [
+  "[adt.chosen.bytes] adds the zeroed darwinboot-efi-map report slot (see the memory area).",
   "[payload.adt] owned_memory_size is 0xaa000000 (2.66 GiB) instead of 0x40000000 (see the memory area).",
   "kernel_args pass sirius-skip-setup=1 (see the diagnostics area).",
   "kernel_args add sheng-touch-hid=1 (NativeHidInput adds the touch collection to its combined device; see the input area).",
@@ -109,6 +110,7 @@ procedure = [
   "U-Boot boots UniXNU when /EFI/UniXNU/BOOTUNIXNU exists on the vendor partition and boots Linux otherwise.",
 ]
 findings = [
+  "DarwinBoot (drivers/DarwinBoot board fork) fills /chosen/darwinboot-efi-map with the final UEFI memory map before ExitBootServices (see the memory area).",
   "DarwinBoot (board fork) appends the free conventional-memory runs of at least 64 MiB it sees before placing the window to the kernel command line as db-runs=<start>+<bytes>,... (hex, up to eight); the kernel prints them, so the real layout can size owned_memory_size without the NO WINDOW screen.",
   "The eMMC work adds no firmware component: the payload still boots through U-Boot with the same marker file.",
   "U-Boot's UEFI services are enough for UniXNU, DarwinBoot and XNU: no Mu-Silicium platform port is needed for this board.",
@@ -182,6 +184,7 @@ procedure = [
   "Read the MEM row of the boot-progress panel and compare it with the DTS range.",
 ]
 findings = [
+  "To find what keeps the 2.7 GiB above 0x14e1e4000 out of the window, DarwinBoot now fills a zeroed /chosen/darwinboot-efi-map placeholder (board.toml [adt.chosen.bytes], 32 x 24 bytes) from the final UEFI memory map right after the last GetMap before ExitBootServices (stack only, no allocation): adjacent descriptors of one type merged, the 32 largest ranges kept in address order (start, bytes, EFI type, descriptors merged). NativeEmmc's memory report logs them as NEMMC efi-map lines (first three reports). The kernel command line (883 + about 60 characters of XNU's 1024) has no room for the map. Not run yet.",
   "With SpringBoard running in the 1 GiB window the phone is very laggy (kernel 8a6e9fc / payload 5a5ba94: LOAD sys 69%, swap file creation fails at 50 s, compressor active). [payload.adt] owned_memory_size is now 0xaa000000 (2.66 GiB), nearly all of the largest free run 0x9f800000+0xae9e7000 (to 0x14e1e7000), leaving about 70 MiB of it for DarwinBoot's later allocations. Of the 6 GiB model's 0x17d6c0000 bytes from 0x80000000, the firmware's reserved regions below 0x9f800000 stay unavailable to any OS, and the 2.7 GiB from 0x14e1e7000 to 0x1fd6c0000 is not free when DarwinBoot allocates the window (what holds it is not known yet); XNU takes one contiguous window.",
   "DarwinBoot's free runs on this unit (kernel 130bf97, payload 216ef03): 0x80000000+0x5700000, 0x97c00000+0x4400000 and 0x9f800000+0xae9e7000 (2.73 GiB, crossing 4 GiB at 0x100000000); the 1 GiB window sits at 0x9f87c000. A window up to about 2.7 GiB fits that run, with the part above 0x100000000 out of the eMMC's DMA reach.",
   "A window larger than 1 GiB is bounded by the eMMC's 32-bit ADMA2: the kernel image's static descriptor and single-block buffers and the run bounce buffer (IOMalloc) must stay below 4 GiB, and sirius_emmc_read_blocks refuses a page above it; DarwinBoot takes the first free run that fits. The heartbeat now prints the window (NEMMC window base/size) and DarwinBoot's free runs (NEMMC db-runs) so the next size is chosen from the measured layout.",
@@ -219,6 +222,7 @@ procedure = [
   "Read the evidence off the boot-progress console: the probe prints the GPT rows, the driver logs the block count it publishes.",
 ]
 findings = [
+  "NativeEmmc's memory report also logs /chosen/darwinboot-efi-map as NEMMC efi-map lines (see the memory area).",
   "Read rate from the NEMMC alive blocks counter (kernel f222029): flat 30 MiB/s from 55 to 150 s (the card's limit at 50 MHz 8-bit SDR, mostly the shared-cache verification), 13-23 MiB/s to about 330 s, then under 2 MiB/s while the Apple logo stays up: the first five minutes are storage-bound, the rest is not. Linux runs this card in HS400; DDR52 (controller clock twice the card clock, BUS_WIDTH 6, UHS DDR50, no DLL or tuning below 100 MHz per sdhci-msm) is the next rung that needs no tuning.",
   "The run bounce buffer comes from IOBufferMemoryDescriptor::inTaskWithPhysicalMask (contiguous, mask 0xfffff000) instead of IOMalloc, so it stays below 4 GiB where the 32-bit ADMA2 reaches when the window grows past 0x100000000.",
   "NativeEmmc's heartbeat also carries the display copy counters every fourth beat (NEMMC fb copies, copy last/mean/max us, read last us, cache source/scanout/wimg) and every sixteenth beat the clock of the core it runs on (NEMMC cpu mpidr, NEMMC cpu MHz), the cpufreq-hw state of both clusters, the memory layout (NEMMC window base/size, NEMMC db-runs) and the CPU load (NEMMC load user/sys/idle %), because past about 220 s the console has no other source for them; the storage path is unchanged. realhost is declared locally there: kern/host.h exposes it only to MACH_KERNEL_PRIVATE code and the IOKit recipe does not define that.",
@@ -614,6 +618,7 @@ procedure = [
   "Record the last checkpoint printed on the panel and in the U-Boot/XNU log for every boot, with the kernel and payload hashes of that run.",
 ]
 findings = [
+  "The heartbeat's memory report adds NEMMC efi-map lines from /chosen/darwinboot-efi-map (see the memory area).",
   "The GPU SMMU stream-mapping dump of kernel 4f8ea4d is docs/evidence/sirius-gpu-20261029-smmu.log.",
   "package/BootWatchdogPolicy.c (sirius-skip-setup=1, kernel_args) writes, on every boot before launchd, the preference values of UniXNU scripts/seed-data-skip-setup.py (from dipa-studio/ios-sweet, established on hardware) into the persistent Data volume as XML plists owned by mobile (501), mode 0600: com.apple.purplebuddy SetupDone, SetupFinishedAllSteps, SetupVersion 11, daemonizeNeedsToRun false; the purplebuddy.notbackedup mini-buddy flags false; managedconfiguration.notbackedup LockdownActivationIndicatesCloudConfigurationAvailable false; com.apple.springboard BKNoWatchdogs, FBLaunchWatchdogExceptions {com.apple.purplebuddy: 100}, MCForceShowCloudConfigurationUI false and SBDisableAutoDim, SBDontDimOrLockOnAC, SBDisableIdleSleep (no power button driver to wake the display). The seed tool edits a packed RAM Data seed on a Mac and cannot reach this board's eMMC Data volume. sheng-setup=1 still wins (the Hello page). Each write logs sirius skip setup: <path> <errno>. Not run yet.",
   "package/sirius_gpu.c also logs the GPU SMMU stream-mapping dump as GPU smmu smrN/cbN lines (see the gpu area).",
@@ -706,6 +711,7 @@ procedure = [
   "Recovery: flash sirius-distro's build/boot.img, which ignores the marker and boots Linux.",
 ]
 findings = [
+  "drivers/DarwinBoot: AdtNode records /chosen/darwinboot-efi-map (exactly 768 bytes) and FillEfiMapReport writes the final UEFI memory map into it before the hand-off (see the memory area); built locally (DarwinBoot.efi 29696 bytes).",
   "U-Boot needs no source change for this port: with the environment file above, bootcmd runs unixnu_check first and falls back to the Linux path when /EFI/UniXNU/BOOTUNIXNU is absent on p80.",
   "mmc 0:50 is a hexadecimal partition number (0x50 = 80 = the vendor partition); 0:80 is read as 0x80 = 128 and fails with 'Invalid partition 128'.",
   "bootflow scan cannot find p80: it stops after the first 30 partitions of each device, so the boot chain uses load/bootefi with the partition spelled out.",

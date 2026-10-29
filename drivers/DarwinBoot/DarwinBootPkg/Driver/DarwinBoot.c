@@ -487,6 +487,16 @@ ParseKernel (CONST UINT8 *Data, UINTN Size, KERNEL *Kernel)
   return EFI_SUCCESS;
 }
 
+//
+// Board report (sirius): /chosen/darwinboot-efi-map, a zeroed placeholder the payload writes, receives the final UEFI
+// memory map before the hand-off, so the kernel can log which firmware ranges keep DRAM out of the window. Entries of
+// 24 bytes: start (u64), bytes (u64), EFI memory type (u32), descriptors merged (u32); adjacent descriptors of one type
+// are merged and the largest EFI_MAP_REPORT_ENTRIES ranges are kept, in address order.
+//
+#define EFI_MAP_REPORT_ENTRIES  32
+#define EFI_MAP_REPORT_BYTES    (EFI_MAP_REPORT_ENTRIES * 24)
+STATIC UINTN mEfiMapOffset = MAX_UINTN;
+
 STATIC
 BOOLEAN
 AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN ParentPath, UINTN *RamdiskOffset, UINTN *TrustCacheOffset, UINTN *AddonOffset, UINT64 *WindowSize, BOOLEAN *KeepPacked)
@@ -500,11 +510,13 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
   UINTN  TrustCandidate;
   UINTN  AddonCandidate;
   UINTN  MemoryCandidate;
+  UINTN  MapCandidate;
   CONST UINT8 *Name;
   UINTN  NameLength;
 
   Name = NULL;
   NameLength = 0;
+  MapCandidate = MAX_UINTN;
   Candidate = MAX_UINTN;
   TrustCandidate = MAX_UINTN;
   AddonCandidate = MAX_UINTN;
@@ -546,6 +558,10 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
       if ((MemoryCandidate != MAX_UINTN) || (Length != 8)) { return FALSE; }
       MemoryCandidate = *Offset;
     }
+    if (AsciiStrCmp ((CONST CHAR8 *)(Data + *Offset - 36), "darwinboot-efi-map") == 0) {
+      if ((MapCandidate != MAX_UINTN) || (Length != EFI_MAP_REPORT_BYTES)) { return FALSE; }
+      MapCandidate = *Offset;
+    }
     *Offset += Length;
     if (ALIGN_VALUE (*Offset, 4) > Size) { return FALSE; }
     *Offset = ALIGN_VALUE (*Offset, 4);
@@ -565,6 +581,10 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
   if ((Path == 2) && (AddonCandidate != MAX_UINTN)) {
     if (*AddonOffset != MAX_UINTN) { return FALSE; }
     *AddonOffset = AddonCandidate;
+  }
+  if (MapCandidate != MAX_UINTN) {
+    if ((Path != 1) || (mEfiMapOffset != MAX_UINTN)) { return FALSE; }
+    mEfiMapOffset = MapCandidate;
   }
   if (MemoryCandidate != MAX_UINTN) {
     if ((Path != 1) || (*WindowSize != 0)) { return FALSE; }
@@ -651,6 +671,72 @@ RunEnd (EFI_MEMORY_DESCRIPTOR *Map, UINTN Size, UINTN Stride, UINT64 Start, UINT
   } while (Extended);
   (VOID)Start;
   return End;
+}
+
+// Fill the /chosen/darwinboot-efi-map report at Report from the final map. Stack only, no allocation: it runs after the
+// last GetMap, whose key ExitBootServices needs.
+STATIC
+VOID
+FillEfiMapReport (UINT8 *Report, EFI_MEMORY_DESCRIPTOR *Map, UINTN Size, UINTN Stride)
+{
+  UINT64  Start[96];
+  UINT64  Bytes[96];
+  UINT32  Type[96];
+  UINT32  Merged[96];
+  UINT8   Keep[96];
+  UINTN   Count;
+  UINTN   Offset;
+  UINTN   Index;
+  UINTN   Kept;
+  UINTN   Best;
+  UINTN   Slot;
+  UINT64  Previous;
+  EFI_MEMORY_DESCRIPTOR *Descriptor;
+
+  Count = 0;
+  for (Offset = 0; Offset + Stride <= Size; Offset += Stride) {
+    Descriptor = (EFI_MEMORY_DESCRIPTOR *)((UINT8 *)Map + Offset);
+    if (Descriptor->NumberOfPages == 0) { continue; }
+    if ((Count > 0) && (Type[Count - 1] == Descriptor->Type) && (Start[Count - 1] + Bytes[Count - 1] == Descriptor->PhysicalStart)) {
+      Bytes[Count - 1] += EFI_PAGES_TO_SIZE (Descriptor->NumberOfPages);
+      Merged[Count - 1]++;
+      continue;
+    }
+    if (Count == ARRAY_SIZE (Start)) { break; }
+    Start[Count] = Descriptor->PhysicalStart;
+    Bytes[Count] = EFI_PAGES_TO_SIZE (Descriptor->NumberOfPages);
+    Type[Count] = Descriptor->Type;
+    Merged[Count] = 1;
+    Keep[Count] = 0;
+    Count++;
+  }
+  // The largest ranges first, then written in address order.
+  for (Kept = 0; Kept < EFI_MAP_REPORT_ENTRIES; Kept++) {
+    Best = MAX_UINTN;
+    for (Index = 0; Index < Count; Index++) {
+      if (!Keep[Index] && ((Best == MAX_UINTN) || (Bytes[Index] > Bytes[Best]))) { Best = Index; }
+    }
+    if (Best == MAX_UINTN) { break; }
+    Keep[Best] = 1;
+  }
+  ZeroMem (Report, EFI_MAP_REPORT_BYTES);
+  Slot = 0;
+  Previous = 0;
+  while (Slot < EFI_MAP_REPORT_ENTRIES) {
+    Best = MAX_UINTN;
+    for (Index = 0; Index < Count; Index++) {
+      if (Keep[Index] && ((Slot == 0) || (Start[Index] > Previous)) && ((Best == MAX_UINTN) || (Start[Index] < Start[Best]))) {
+        Best = Index;
+      }
+    }
+    if (Best == MAX_UINTN) { break; }
+    WriteUnaligned64 ((UINT64 *)(Report + Slot * 24), Start[Best]);
+    WriteUnaligned64 ((UINT64 *)(Report + Slot * 24 + 8), Bytes[Best]);
+    WriteUnaligned32 ((UINT32 *)(Report + Slot * 24 + 16), Type[Best]);
+    WriteUnaligned32 ((UINT32 *)(Report + Slot * 24 + 20), Merged[Best]);
+    Previous = Start[Best];
+    Slot++;
+  }
 }
 
 // Large diagnostic text straight into the GOP framebuffer: the UEFI text console font is too small to
@@ -1026,6 +1112,9 @@ Boot (
   Root->Close (Root); Root = NULL;
   Status = GetMap (&Map, &Capacity, &MapSize, &Key, &Stride);
   if (EFI_ERROR (Status)) { goto Fail; }
+  if (mEfiMapOffset != MAX_UINTN) {
+    FillEfiMapReport ((UINT8 *)(UINTN)(TreeAddress + mEfiMapOffset), Map, MapSize, Stride);
+  }
   Print (L"DARWINBOOT: ARM64 va=0x%lx pa=0x%lx args=0x%lx entry=0x%lx owned=0x%lx\n",
          Kernel.Base, Address, ArgsAddress, Address + Kernel.Entry - Kernel.Base, (UINT64)WindowSize);
   Print (L"DARWINBOOT: video base=0x%lx display=%lu row=%lu width=%lu height=%lu depth=%lu\n",
