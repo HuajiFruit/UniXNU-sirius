@@ -506,7 +506,12 @@ hfi_send(uint32_t id, uint32_t *message, uint32_t words, uint32_t *payload, uint
 		GMU(GMU_GMU2HOST_INTR_CLR) = 1;
 		dma_sync(DMA_OFFSET(GMU_HFI_IOVA), 0x3000);
 		while (response[10] != response[11]) {
-			uint32_t read = response[10], reply[19] = { 0 }, header = response_data[read], size = (header >> 8) & 0xff;
+			uint32_t read = response[10];
+			uint32_t reply[19] = { 0 }, header = read < 1024 ? response_data[read] : 0, size = (header >> 8) & 0xff;
+			if (!size) {                                                /* a corrupt queue: do not spin on it */
+				printf("GPU hfi response queue read=%u write=%u header=%08x: corrupt\n", read, response[11], header);
+				return -1;
+			}
 			for (unsigned i = 0; i < size; ++i) {
 				if (i < 19) {
 					reply[i] = response_data[read];
