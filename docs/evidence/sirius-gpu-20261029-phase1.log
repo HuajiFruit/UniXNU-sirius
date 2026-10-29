@@ -1,0 +1,27 @@
+# sirius, kernel 86b616b (commit 54e6ffe, sirius-gpu=1 sirius-touch=1) / payload f2ba289: GPU phase 1 and the touch bring-up lines
+# (unique lines, first window). Panel photo at t=389 s: Setup 'hello', no panic.
+TOUCH clk vote=45b00000 m_ahb=00000000 s_ahb=00000000 s1=00004220 rcg cmd=00000000 cfg=00100000
+TOUCH qup1 hw_ver=10010000
+TOUCH se fw=00000300 proto=3 fifo_disable=0 tx_depth=16 status=00000000
+GPU gcc vote=01601d7b cfg_ahb=00000001 memnoc=80004220 snoc_dvm=80000001 ddr_axi=00000000
+GPU clk gpu_cfg_ahb cbcr=00000001 on
+GPU cx gdscr=00222001 hw_ctrl=00005ff4 gx gdscr=00222001
+GPU cx gdsc on: gdscr=f8288000 hw_ctrl=80001fe0 on
+GPU clk gpu_memnoc_gfx cbcr=00004221 on
+GPU clk gpu_snoc_dvm_gfx cbcr=00000001 on
+GPU clk ddrss_gpu_axi cbcr=00000001 on
+GPU gmu rcg cmd=80000000 cfg=00000000 cx_gmu=80004220 cxo=00000001
+GPU clk cx_gmu cbcr=00004221 on
+GPU clk gpu_cxo cbcr=00000001 on
+GPU gmu rcg now cmd=00000000 (after update 00000002) cfg=00000602
+TOUCH cmd-db ldob6 addr=00041b00
+TOUCH rsc drv2 id=00010100 config=80008104 tcs0 control=00000000 enable=00000000 status=00000001
+GPU gmu sysreset=00000001 boot_config=00000000 fw_init=00000000 fw_version=ccf3d6df hfi_ctrl=00000000 sptprac=000000d4 rpmh_state=0000000f
+GPU gmu always-on 000008c8 -> 001ed8f0: 2019368 ticks in 10 ms (19.2 MHz: about 192000)
+GPU smmu scr0=00200626 idr0=48016605 idr1=20008005 idr2=00007511 idr7=00000000
+GPU phase 1 done: CX powered, GMU and GPU SMMU readable
+TOUCH avdd ldob6 vrm=41b00 3300mV done=1 ms cmd status 00010101 00010101 00010101
+TOUCH power avdd=1 pins sda/scl cfg=00000007/00000007 irq=1 reset=1 vddio=1
+TOUCH reset ready=1 bus errors=0 last=00000000 irq=1
+TOUCH chip id error=00000000 irq=08000081 read=8 bytes 36 39 03 00 54 00 39 19
+TOUCH sense on error=00000000 irq=1
