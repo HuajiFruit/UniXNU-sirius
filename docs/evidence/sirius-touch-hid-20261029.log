@@ -1,0 +1,15 @@
+# sirius, kernel 985facb (commit bd74e96, sirius-touch-hid=1) / payload d7f5ce4: the HID path, unique lines in arrival order.
+# Touch reports read by the FTS521 driver in these windows: 3240. Panel photo at t=778 s: Setup ('ciao'), touch has no effect.
+TOUCH hid touch screen started on IOHIDResource (metaclass status 0)
+TOUCH reset ready=1 bus errors=0 last=00000000 irq=1
+TOUCH chip id error=00000000 irq=08000081 read=8 bytes 36 39 03 00 54 00 39 19
+TOUCH sense on error=00000000 irq=1
+SPAWN 142s exec 27 SpringBoard
+SPAWN 142s exec 64 driverkitd
+SPAWN 147s exec 56 backboardd
+KextLog: driverkitd is not active
+DK: AppleUserHIDEventDriver-0x100000249 waiting for server com.apple.driverkit.AppleUserHIDDrivers-100000249
+KextLog: driverkitd is active
+TOUCH hid event driver AppleUserHIDEventService published as the built-in touch screen
+SPAWN 222s exec 219 Setup
+DK: AppleUserHIDEventDriver-0x100000249 user server timeout

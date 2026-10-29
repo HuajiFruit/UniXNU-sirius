@@ -168,6 +168,9 @@ kernel_args = [
   "sirius-spawn-log=1",             # package/BootProgress.c: a SPAWN console line per exec and exit, with the second
   "sirius-touch=1",                 # package/sirius_touch.c: QUP1 SE1 I2C, FTS521 chip id, then the event FIFO
   "sirius-touch-hid=1",             # package/SiriusHidProbe.cpp: publish the touch screen (ShengHidInput) to iOS
+  "dk=0",                           # DriverKit off (gIODKDebug without kIODKEnable): dext personalities never match. With it on,
+                                    # AppleUserHIDEventService took the touch screen and its AppleUserHIDDrivers server was never
+                                    # launched (user server timeout); off, the in-kernel IOHIDEventDriver matches instead
   "sirius-gpu=1",                   # package/sirius_gpu.c: Adreno 616 phase 1 (CX GDSC, GMU clock, GMU/SMMU reads)
   "validation_disables=0x10",       # KF_STACKSHOT_OVRD: user stackshots return KERN_NOT_SUPPORTED. Watchdogs ask
                                     # for one before they kill a hung job, and on this port threads keep changing while
